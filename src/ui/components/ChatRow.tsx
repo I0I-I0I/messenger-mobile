@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View, Image } from "react-native";
 
 import { ChatListItem } from "@/src/domain/types";
 
@@ -16,8 +16,14 @@ function formatTime(timestamp: number) {
 
 export function ChatRow({ item, onPress }: ChatRowProps) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-      <Text style={styles.avatar}>{item.otherUser.avatar}</Text>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+    >
+      <Image
+        source={{ uri: item.otherUser.avatar }}
+        style={styles.avatarImage}
+      />
       <View style={styles.main}>
         <View style={styles.header}>
           <Text style={styles.name}>{item.otherUser.displayName}</Text>
@@ -26,7 +32,7 @@ export function ChatRow({ item, onPress }: ChatRowProps) {
           </Text>
         </View>
         <Text style={styles.preview} numberOfLines={1}>
-          {item.lastMessage?.body ?? "No messages yet"}
+          {item.lastMessage?.content ?? "No messages yet"}
         </Text>
       </View>
     </Pressable>
@@ -47,8 +53,10 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.75,
   },
-  avatar: {
-    fontSize: 24,
+  avatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   main: {
     flex: 1,

@@ -43,7 +43,7 @@ export default function RegisterScreen() {
         });
       });
       await login(user.id);
-      router.replace("/(app)/home");
+      router.replace("/(app)/(tabs)/chats");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       const normalized = message.toLowerCase();

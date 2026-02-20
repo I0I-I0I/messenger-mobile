@@ -21,7 +21,7 @@ export type Message = {
   id: string;
   chatId: string;
   senderId: string;
-  body: string;
+  content: string;
   createdAt: number;
 };
 

@@ -6,7 +6,7 @@ export default function AuthLayout() {
   const userId = useSessionStore((state: SessionState) => state.userId);
 
   if (userId) {
-    return <Redirect href="/(app)/home" />;
+    return <Redirect href="/(app)/(tabs)/chats" />;
   }
 
   return <Stack screenOptions={{ headerShown: false }} />;

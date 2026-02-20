@@ -26,20 +26,24 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      const user = { id: "1", email: "test@example.com", passwordHash: "hash" };
+      const user = {
+        id: "1",
+        email: "test@example.com",
+        passwordHash: await hashPassword("123456"),
+      };
       if (!user) {
-        setError("User not found.");
+        setError("Пользователь не найден");
         return;
       }
 
       const hash = await hashPassword(password);
       if (hash !== user.passwordHash) {
-        setError("Invalid password.");
+        setError("Неправильный пароль");
         return;
       }
 
       await login(user.id);
-      router.replace("/(app)/home");
+      router.replace("/(app)/(tabs)/chats");
     } finally {
       setLoading(false);
     }

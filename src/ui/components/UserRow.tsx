@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View, Image } from "react-native";
 
 import { User } from "@/src/domain/types";
 
@@ -9,8 +9,11 @@ type UserRowProps = {
 
 export function UserRow({ user, onPress }: UserRowProps) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-      <Text style={styles.avatar}>{user.avatar}</Text>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+    >
+      <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
       <View>
         <Text style={styles.name}>{user.displayName}</Text>
         <Text style={styles.username}>@{user.username}</Text>
@@ -33,9 +36,6 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.75,
   },
-  avatar: {
-    fontSize: 24,
-  },
   name: {
     fontSize: 16,
     fontWeight: "600",
@@ -43,5 +43,10 @@ const styles = StyleSheet.create({
   },
   username: {
     color: "#6b7280",
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
 });
