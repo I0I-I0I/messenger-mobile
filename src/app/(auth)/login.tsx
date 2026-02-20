@@ -1,11 +1,11 @@
 import { Link, router } from "expo-router";
 import { useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -16,115 +16,123 @@ import { Button } from "@/src/ui/components/Button";
 import { TextField } from "@/src/ui/components/TextField";
 
 export default function LoginScreen() {
-  const login = useSessionStore((state: SessionState) => state.login);
-  const { theme } = useTheme();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+    const login = useSessionStore((state: SessionState) => state.login);
+    const { theme } = useTheme();
+    const [username, setUsername] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
 
-  async function onLogin() {
-    setError(null);
-    setLoading(true);
+    async function onLogin() {
+        setError(null);
+        setLoading(true);
 
-    try {
-      const user = {
-        id: "1",
-        email: "test@example.com",
-        passwordHash: await hashPassword("123456"),
-      };
-      if (!user) {
-        setError("Пользователь не найден");
-        return;
-      }
+        try {
+            const user = {
+                id: "1",
+                email: "test@example.com",
+                passwordHash: await hashPassword("123456"),
+            };
+            if (!user) {
+                setError("Пользователь не найден");
+                return;
+            }
 
-      const hash = await hashPassword(password);
-      if (hash !== user.passwordHash) {
-        setError("Неправильный пароль");
-        return;
-      }
+            const hash = await hashPassword(password);
+            if (hash !== user.passwordHash) {
+                setError("Неправильный пароль");
+                return;
+            }
 
-      await login(user.id);
-      router.replace("/(app)/(tabs)/chats");
-    } finally {
-      setLoading(false);
+            await login(user.id);
+            router.replace("/(app)/(tabs)/chats");
+        } finally {
+            setLoading(false);
+        }
     }
-  }
 
-  return (
-    <KeyboardAvoidingView
-      style={styles.keyboardAvoiding}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: theme.colors.background }]}
-        edges={["top"]}
-      >
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
+    return (
+        <KeyboardAvoidingView
+            style={styles.keyboardAvoiding}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
-          <Text style={[styles.title, { color: theme.colors.text }]}>
-            Войти
-          </Text>
-          <TextField
-            label="Логин"
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-          />
-          <TextField
-            label="Пароль"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+            <SafeAreaView
+                style={[
+                    styles.container,
+                    { backgroundColor: theme.colors.background },
+                ]}
+                edges={["top"]}
+            >
+                <ScrollView
+                    contentContainerStyle={styles.content}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <Text style={[styles.title, { color: theme.colors.text }]}>
+                        Войти
+                    </Text>
+                    <TextField
+                        label="Логин"
+                        value={username}
+                        onChangeText={setUsername}
+                        autoCapitalize="none"
+                    />
+                    <TextField
+                        label="Пароль"
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry
+                    />
 
-          {error ? (
-            <Text style={[styles.error, { color: theme.colors.notification }]}>
-              {error}
-            </Text>
-          ) : null}
+                    {error ? (
+                        <Text
+                            style={[
+                                styles.error,
+                                { color: theme.colors.notification },
+                            ]}
+                        >
+                            {error}
+                        </Text>
+                    ) : null}
 
-          <Button
-            title={loading ? "Вход..." : "Войти"}
-            onPress={onLogin}
-            disabled={loading}
-          />
+                    <Button
+                        title={loading ? "Вход..." : "Войти"}
+                        onPress={onLogin}
+                        disabled={loading}
+                    />
 
-          <Link
-            href="/(auth)/register"
-            style={[styles.link, { color: theme.colors.primary }]}
-          >
-            Создать аккаунт
-          </Link>
-        </ScrollView>
-      </SafeAreaView>
-    </KeyboardAvoidingView>
-  );
+                    <Link
+                        href="/(auth)/register"
+                        style={[styles.link, { color: theme.colors.primary }]}
+                    >
+                        Создать аккаунт
+                    </Link>
+                </ScrollView>
+            </SafeAreaView>
+        </KeyboardAvoidingView>
+    );
 }
 
 const styles = StyleSheet.create({
-  keyboardAvoiding: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-  },
-  content: {
-    flexGrow: 1,
-    padding: 20,
-    justifyContent: "center",
-    gap: 12,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-  link: {
-    textAlign: "center",
-    marginTop: 8,
-  },
-  error: {},
+    keyboardAvoiding: {
+        flex: 1,
+    },
+    container: {
+        flex: 1,
+    },
+    content: {
+        flexGrow: 1,
+        padding: 20,
+        justifyContent: "center",
+        gap: 12,
+    },
+    title: {
+        fontSize: 28,
+        fontWeight: "700",
+        marginBottom: 8,
+    },
+    link: {
+        textAlign: "center",
+        marginTop: 8,
+    },
+    error: {},
 });

@@ -1,57 +1,76 @@
 import { Chat, ChatListItem } from "../domain/types";
+import { createId } from "../domain/id";
+import { getLastMessageForChat } from "./messages";
+import { getUserById, MOCK_CHATS } from "./mockData";
+
+const chatStore: Chat[] = [...MOCK_CHATS];
 
 export const getChatsForUser = ({
-  userId,
+    userId,
 }: {
-  userId: string;
+    userId: string;
 }): Promise<ChatListItem[]> => {
-  return Promise.resolve([
-    {
-      chat: {
-        id: "1",
-        userA: "userA",
-        userB: "userB",
-        createdAt: Date.now(),
-      },
-      otherUser: {
-        id: "1",
-        username: "username",
-        displayName: "displayName",
-        avatar:
-          "https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ftse1.mm.bing.net%2Fth%2Fid%2FOIP.ZtfaXect2blxlNe7ShihDAHaHa%3Fpid%3DApi&f=1&ipt=25170e7b373695d24892355509e5d0cc4c3f84c273690a33947921774530366e&ipo=images",
-        createdAt: Date.now(),
-      },
-      lastMessage: {
-        id: "1",
-        chatId: "1",
-        senderId: "1",
-        content: "body",
-        createdAt: Date.now(),
-      },
-    },
-  ]);
+    const items = chatStore
+        .filter((chat) => chat.userA === userId || chat.userB === userId)
+        .map((chat) => {
+            const otherUserId = chat.userA === userId ? chat.userB : chat.userA;
+            const otherUser = getUserById(otherUserId);
+
+            if (!otherUser) {
+                return null;
+            }
+
+            return {
+                chat,
+                otherUser,
+                lastMessage: getLastMessageForChat(chat.id),
+            } satisfies ChatListItem;
+        })
+        .filter((item): item is ChatListItem => item !== null)
+        .sort((a, b) => {
+            const aTime = a.lastMessage?.createdAt ?? a.chat.createdAt;
+            const bTime = b.lastMessage?.createdAt ?? b.chat.createdAt;
+            return bTime - aTime;
+        });
+
+    return Promise.resolve(items);
 };
 
 export const getChatById = ({ chatId }: { chatId: string }): Promise<Chat> => {
-  return Promise.resolve({
-    id: "1",
-    userA: "userA",
-    userB: "userB",
-    createdAt: Date.now(),
-  });
+    const chat = chatStore.find((item) => item.id === chatId);
+    return Promise.resolve(
+        chat ?? {
+            id: chatId,
+            userA: "1",
+            userB: "2",
+            createdAt: Date.now(),
+        },
+    );
 };
 
 export const findOrCreateDirectChat = async ({
-  currentUserId,
-  otherUserId,
+    currentUserId,
+    otherUserId,
 }: {
-  currentUserId: string;
-  otherUserId: string;
+    currentUserId: string;
+    otherUserId: string;
 }): Promise<Chat> => {
-  return Promise.resolve({
-    id: "1",
-    userA: "userA",
-    userB: "userB",
-    createdAt: Date.now(),
-  });
+    const existing = chatStore.find(
+        (chat) =>
+            (chat.userA === currentUserId && chat.userB === otherUserId) ||
+            (chat.userA === otherUserId && chat.userB === currentUserId),
+    );
+
+    if (existing) {
+        return Promise.resolve(existing);
+    }
+
+    const created: Chat = {
+        id: createId("chat"),
+        userA: currentUserId,
+        userB: otherUserId,
+        createdAt: Date.now(),
+    };
+    chatStore.unshift(created);
+    return Promise.resolve(created);
 };
