@@ -4,12 +4,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useCallback, useState } from "react";
 
 import { SessionState, useSessionStore } from "@/src/state/useSessionStore";
+import { useTheme } from "@/src/theme/ThemeProvider";
 import { ChatRow } from "@/src/ui/components/ChatRow";
 import { ChatListItem } from "@/src/domain/types";
 import { getChatsForUser } from "@/src/service/chats";
 
 export default function HomeScreen() {
   const userId = useSessionStore((state: SessionState) => state.userId);
+  const { theme } = useTheme();
   const [items, setItems] = useState<ChatListItem[]>([]);
 
   const load = useCallback(async () => {
@@ -28,7 +30,10 @@ export default function HomeScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={["bottom"]}
+    >
       <FlatList
         data={items}
         keyExtractor={(item) => item.chat.id}
@@ -38,14 +43,16 @@ export default function HomeScreen() {
             item={item}
             onPress={() => {
               router.push({
-                pathname: "/(app)/(tabs)/chat/[chatId]",
+                pathname: "/(app)/chat/[chatId]",
                 params: { chatId: item.chat.id },
               });
             }}
           />
         )}
         ListEmptyComponent={
-          <Text style={styles.empty}>У вас пока нет чатов</Text>
+          <Text style={[styles.empty, { color: theme.colors.mutedText }]}>
+            У вас пока нет чатов
+          </Text>
         }
       />
     </SafeAreaView>
@@ -56,7 +63,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: "#f3f4f6",
     gap: 12,
   },
   list: {
@@ -65,7 +71,6 @@ const styles = StyleSheet.create({
   },
   empty: {
     textAlign: "center",
-    color: "#6b7280",
     marginTop: 18,
   },
 });

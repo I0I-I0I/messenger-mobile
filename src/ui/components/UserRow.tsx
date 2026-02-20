@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View, Image } from "react-native";
 
 import { User } from "@/src/domain/types";
+import { useTheme } from "@/src/theme/ThemeProvider";
 
 type UserRowProps = {
   user: User;
@@ -8,15 +9,28 @@ type UserRowProps = {
 };
 
 export function UserRow({ user, onPress }: UserRowProps) {
+  const { theme } = useTheme();
+
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.row,
+        {
+          backgroundColor: theme.colors.surface,
+          borderColor: theme.colors.border,
+        },
+        pressed && styles.pressed,
+      ]}
     >
       <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
       <View>
-        <Text style={styles.name}>{user.displayName}</Text>
-        <Text style={styles.username}>@{user.username}</Text>
+        <Text style={[styles.name, { color: theme.colors.text }]}>
+          {user.displayName}
+        </Text>
+        <Text style={[styles.username, { color: theme.colors.mutedText }]}>
+          @{user.username}
+        </Text>
       </View>
     </Pressable>
   );
@@ -29,9 +43,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 12,
     borderRadius: 12,
-    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#e5e7eb",
   },
   pressed: {
     opacity: 0.75,
@@ -39,11 +51,8 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#111827",
   },
-  username: {
-    color: "#6b7280",
-  },
+  username: {},
   avatarImage: {
     width: 40,
     height: 40,

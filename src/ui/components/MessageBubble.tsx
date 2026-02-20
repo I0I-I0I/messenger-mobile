@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
+import { useTheme } from "@/src/theme/ThemeProvider";
+
 type MessageBubbleProps = {
   body: string;
   mine: boolean;
@@ -14,11 +16,36 @@ function formatTime(timestamp: number) {
 }
 
 export function MessageBubble({ body, mine, timestamp }: MessageBubbleProps) {
+  const { theme } = useTheme();
+
   return (
     <View style={[styles.wrap, mine ? styles.mineWrap : styles.otherWrap]}>
-      <View style={[styles.bubble, mine ? styles.mine : styles.other]}>
-        <Text style={[styles.text, mine ? styles.mineText : styles.otherText]}>{body}</Text>
-        <Text style={[styles.time, mine ? styles.mineTime : styles.otherTime]}>
+      <View
+        style={[
+          styles.bubble,
+          mine
+            ? { backgroundColor: theme.colors.primary }
+            : {
+                backgroundColor: theme.colors.surface,
+                borderColor: theme.colors.border,
+                borderWidth: 1,
+              },
+        ]}
+      >
+        <Text
+          style={[
+            styles.text,
+            mine ? styles.mineText : { color: theme.colors.text },
+          ]}
+        >
+          {body}
+        </Text>
+        <Text
+          style={[
+            styles.time,
+            mine ? styles.mineTime : { color: theme.colors.mutedText },
+          ]}
+        >
           {formatTime(timestamp)}
         </Text>
       </View>
@@ -44,29 +71,17 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: 4,
   },
-  mine: {
-    backgroundColor: "#1f6feb",
-  },
-  other: {
-    backgroundColor: "#e5e7eb",
-  },
   text: {
     fontSize: 15,
   },
   mineText: {
     color: "#fff",
   },
-  otherText: {
-    color: "#111827",
-  },
   time: {
     fontSize: 11,
     alignSelf: "flex-end",
   },
   mineTime: {
-    color: "#dbeafe",
-  },
-  otherTime: {
-    color: "#6b7280",
+    color: "#e2e8f0",
   },
 });

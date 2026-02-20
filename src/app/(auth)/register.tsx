@@ -11,11 +11,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { validateRegistrationInput } from "@/src/domain/validators";
 import { SessionState, useSessionStore } from "@/src/state/useSessionStore";
+import { useTheme } from "@/src/theme/ThemeProvider";
 import { Button } from "@/src/ui/components/Button";
 import { TextField } from "@/src/ui/components/TextField";
 
 export default function RegisterScreen() {
   const login = useSessionStore((state: SessionState) => state.login);
+  const { theme } = useTheme();
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
@@ -71,12 +73,17 @@ export default function RegisterScreen() {
       style={styles.keyboardAvoiding}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <SafeAreaView style={styles.container} edges={["top"]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+        edges={["top"]}
+      >
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.title}>Регистрация</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>
+            Регистрация
+          </Text>
           <TextField
             label="Логин"
             value={username}
@@ -97,7 +104,11 @@ export default function RegisterScreen() {
             placeholder="Как минимум 6 символов"
           />
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? (
+            <Text style={[styles.error, { color: theme.colors.notification }]}>
+              {error}
+            </Text>
+          ) : null}
 
           <Button
             title={loading ? "Создание аккаунта..." : "Зарегистрироваться"}
@@ -105,7 +116,10 @@ export default function RegisterScreen() {
             disabled={loading}
           />
 
-          <Link href="/(auth)/login" style={styles.link}>
+          <Link
+            href="/(auth)/login"
+            style={[styles.link, { color: theme.colors.primary }]}
+          >
             Уже есть аккаунт? Войти
           </Link>
         </ScrollView>
@@ -120,7 +134,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: "#f3f4f6",
   },
   content: {
     flexGrow: 1,
@@ -131,15 +144,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#111827",
     marginBottom: 8,
   },
   link: {
-    color: "#1f6feb",
     textAlign: "center",
     marginTop: 8,
   },
-  error: {
-    color: "#b91c1c",
-  },
+  error: {},
 });

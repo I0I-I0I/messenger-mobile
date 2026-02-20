@@ -7,11 +7,13 @@ import { findOrCreateDirectChat } from "@/src/service/chats";
 import { searchUsers } from "@/src/service/users";
 import { User } from "@/src/domain/types";
 import { SessionState, useSessionStore } from "@/src/state/useSessionStore";
+import { useTheme } from "@/src/theme/ThemeProvider";
 import { TextField } from "@/src/ui/components/TextField";
 import { UserRow } from "@/src/ui/components/UserRow";
 
 export default function FriendsScreen() {
   const userId = useSessionStore((state: SessionState) => state.userId);
+  const { theme } = useTheme();
   const [query, setQuery] = useState("");
   const [users, setUsers] = useState<User[]>([]);
 
@@ -47,13 +49,16 @@ export default function FriendsScreen() {
       otherUserId: otherUserId,
     });
     router.push({
-      pathname: "/(app)/(tabs)/chat/[chatId]",
+      pathname: "/(app)/chat/[chatId]",
       params: { chatId: chat.id },
     });
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={["bottom"]}
+    >
       <TextField
         label=""
         value={query}
@@ -68,7 +73,11 @@ export default function FriendsScreen() {
         renderItem={({ item }) => (
           <UserRow user={item} onPress={() => void openChat(item.id)} />
         )}
-        ListEmptyComponent={<Text style={styles.empty}>Никого не найдено</Text>}
+        ListEmptyComponent={
+          <Text style={[styles.empty, { color: theme.colors.mutedText }]}>
+            Никого не найдено
+          </Text>
+        }
       />
     </SafeAreaView>
   );
@@ -79,7 +88,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     gap: 12,
-    backgroundColor: "#f3f4f6",
   },
   list: {
     gap: 10,
@@ -87,7 +95,6 @@ const styles = StyleSheet.create({
   },
   empty: {
     textAlign: "center",
-    color: "#6b7280",
     marginTop: 18,
   },
 });

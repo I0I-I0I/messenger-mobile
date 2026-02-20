@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View, Image } from "react-native";
 
 import { ChatListItem } from "@/src/domain/types";
+import { useTheme } from "@/src/theme/ThemeProvider";
 
 type ChatRowProps = {
   item: ChatListItem;
@@ -15,10 +16,19 @@ function formatTime(timestamp: number) {
 }
 
 export function ChatRow({ item, onPress }: ChatRowProps) {
+  const { theme } = useTheme();
+
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.row,
+        {
+          backgroundColor: theme.colors.surface,
+          borderColor: theme.colors.border,
+        },
+        pressed && styles.pressed,
+      ]}
     >
       <Image
         source={{ uri: item.otherUser.avatar }}
@@ -26,12 +36,17 @@ export function ChatRow({ item, onPress }: ChatRowProps) {
       />
       <View style={styles.main}>
         <View style={styles.header}>
-          <Text style={styles.name}>{item.otherUser.displayName}</Text>
-          <Text style={styles.time}>
+          <Text style={[styles.name, { color: theme.colors.text }]}>
+            {item.otherUser.displayName}
+          </Text>
+          <Text style={[styles.time, { color: theme.colors.mutedText }]}>
             {formatTime(item.lastMessage?.createdAt ?? item.chat.createdAt)}
           </Text>
         </View>
-        <Text style={styles.preview} numberOfLines={1}>
+        <Text
+          style={[styles.preview, { color: theme.colors.mutedText }]}
+          numberOfLines={1}
+        >
           {item.lastMessage?.content ?? "No messages yet"}
         </Text>
       </View>
@@ -46,9 +61,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 12,
     borderRadius: 12,
-    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#e5e7eb",
   },
   pressed: {
     opacity: 0.75,
@@ -70,13 +83,7 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#111827",
   },
-  time: {
-    fontSize: 12,
-    color: "#6b7280",
-  },
-  preview: {
-    color: "#4b5563",
-  },
+  time: { fontSize: 12 },
+  preview: {},
 });

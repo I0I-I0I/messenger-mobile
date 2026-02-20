@@ -1,5 +1,7 @@
 import { Pressable, StyleSheet, Text } from "react-native";
 
+import { useTheme } from "@/src/theme/ThemeProvider";
+
 type ButtonProps = {
   title: string;
   onPress: () => void;
@@ -7,12 +9,15 @@ type ButtonProps = {
 };
 
 export function Button({ title, onPress, disabled = false }: ButtonProps) {
+  const { theme } = useTheme();
+
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => [
         styles.button,
+        { backgroundColor: theme.colors.primary },
         disabled ? styles.disabled : null,
         pressed && !disabled ? styles.pressed : null,
       ]}
@@ -24,7 +29,6 @@ export function Button({ title, onPress, disabled = false }: ButtonProps) {
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: "#1f6feb",
     borderRadius: 10,
     paddingVertical: 12,
     paddingHorizontal: 16,

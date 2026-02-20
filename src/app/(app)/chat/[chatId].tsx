@@ -17,6 +17,7 @@ import { getListMessages, sendMessage } from "@/src/service/messages";
 import { Message } from "@/src/domain/types";
 import { ChatState, useChatStore } from "@/src/state/useChatStore";
 import { SessionState, useSessionStore } from "@/src/state/useSessionStore";
+import { useTheme } from "@/src/theme/ThemeProvider";
 import { Button } from "@/src/ui/components/Button";
 import { MessageBubble } from "@/src/ui/components/MessageBubble";
 
@@ -24,6 +25,7 @@ export default function ChatScreen() {
   const router = useRouter();
   const { chatId } = useLocalSearchParams<{ chatId: string }>();
   const userId = useSessionStore((state: SessionState) => state.userId);
+  const { theme } = useTheme();
 
   const draft = useChatStore((state: ChatState) =>
     chatId ? (state.draftByChatId[chatId] ?? "") : "",
@@ -108,7 +110,10 @@ export default function ChatScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+      edges={["top", "bottom"]}
+    >
       <KeyboardAvoidingView
         style={styles.inner}
         behavior={
@@ -138,19 +143,37 @@ export default function ChatScreen() {
           contentContainerStyle={styles.messages}
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
-            <Text style={styles.empty}>No messages yet. Say hi.</Text>
+            <Text style={[styles.empty, { color: theme.colors.mutedText }]}>
+              No messages yet. Say hi.
+            </Text>
           }
           onContentSizeChange={() =>
             listRef.current?.scrollToEnd({ animated: true })
           }
         />
 
-        <View style={styles.composer}>
+        <View
+          style={[
+            styles.composer,
+            {
+              borderColor: theme.colors.border,
+              backgroundColor: theme.colors.surface,
+            },
+          ]}
+        >
           <TextInput
             value={draft}
             onChangeText={(text) => setDraft(resolvedChatId, text)}
-            style={styles.input}
+            style={[
+              styles.input,
+              {
+                borderColor: theme.colors.border,
+                backgroundColor: theme.colors.background,
+                color: theme.colors.text,
+              },
+            ]}
             placeholder="Сообщение..."
+            placeholderTextColor={theme.colors.mutedText}
             returnKeyType="send"
             onSubmitEditing={() => void onSend()}
             onKeyPress={onInputKeyPress}
@@ -169,7 +192,6 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f3f4f6",
   },
   inner: {
     flex: 1,
@@ -187,22 +209,17 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 12,
     borderTopWidth: 1,
-    borderColor: "#e5e7eb",
     alignItems: "center",
-    backgroundColor: "#fff",
   },
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "#d1d5db",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: "#fff",
   },
   empty: {
     textAlign: "center",
-    color: "#6b7280",
     marginTop: 18,
   },
 });
