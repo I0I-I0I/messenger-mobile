@@ -26,7 +26,7 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      const user = null;
+      const user = { id: "1", email: "test@example.com", passwordHash: "hash" };
       if (!user) {
         setError("User not found.");
         return;
@@ -39,7 +39,7 @@ export default function LoginScreen() {
       }
 
       await login(user.id);
-      // router.replace("/(app)/home");
+      router.replace("/(app)/home");
     } finally {
       setLoading(false);
     }

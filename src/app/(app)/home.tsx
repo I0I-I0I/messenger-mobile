@@ -17,12 +17,12 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       <Text style={styles.title}>Messenger Mock</Text>
       <View style={styles.buttons}>
-        <Button title="Chats" onPress={() => router.push("/(app)/home")} />
+        <Button title="Чаты" onPress={() => router.push("/(app)/home")} />
         <Button
-          title="Find friends"
+          title="Найти друзей"
           onPress={() => router.push("/(app)/home")}
         />
-        <Button title="Logout" onPress={onLogout} />
+        <Button title="Выйти" onPress={onLogout} />
       </View>
     </SafeAreaView>
   );
