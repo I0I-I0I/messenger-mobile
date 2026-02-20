@@ -84,13 +84,6 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="chat/[chatId]"
-        options={{
-          href: null,
-          headerShown: false,
-        }}
-      />
     </Tabs>
   );
 }

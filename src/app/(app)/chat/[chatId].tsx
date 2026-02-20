@@ -1,28 +1,55 @@
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useHeaderHeight } from "@react-navigation/elements";
+import {
+  useFocusEffect,
+  useLocalSearchParams,
+  useNavigation,
+} from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
   TextInputKeyPressEvent,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
-import { getChatById } from "@/src/service/chats";
+import { getChatById, getChatsForUser } from "@/src/service/chats";
 import { getListMessages, sendMessage } from "@/src/service/messages";
 import { Message } from "@/src/domain/types";
 import { ChatState, useChatStore } from "@/src/state/useChatStore";
 import { SessionState, useSessionStore } from "@/src/state/useSessionStore";
 import { useTheme } from "@/src/theme/ThemeProvider";
-import { Button } from "@/src/ui/components/Button";
 import { MessageBubble } from "@/src/ui/components/MessageBubble";
+import { Button } from "@/src/ui/components/Button";
+
+type HeaderChatUser = {
+  displayName: string;
+  avatar: string;
+  lastSeenAt: number;
+};
+
+function formatLastSeen(timestamp: number) {
+  const time = new Date(timestamp).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `Был в ${time}`;
+}
 
 export default function ChatScreen() {
-  const router = useRouter();
+  const navigation = useNavigation();
+  const headerHeight = useHeaderHeight();
+  const insets = useSafeAreaInsets();
   const { chatId } = useLocalSearchParams<{ chatId: string }>();
   const userId = useSessionStore((state: SessionState) => state.userId);
   const { theme } = useTheme();
@@ -33,6 +60,7 @@ export default function ChatScreen() {
   const setDraft = useChatStore((state: ChatState) => state.setDraft);
 
   const [messages, setMessages] = useState<Message[]>([]);
+  const [chatUser, setChatUser] = useState<HeaderChatUser | null>(null);
   const [sending, setSending] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRef = useRef<FlatList<Message>>(null);
@@ -59,11 +87,69 @@ export default function ChatScreen() {
     );
   }, [resolvedChatId]);
 
+  const loadHeaderUser = useCallback(async () => {
+    if (!resolvedChatId || !userId) {
+      setChatUser(null);
+      return;
+    }
+    const chats = await getChatsForUser({ userId });
+    const currentChat = chats.find((item) => item.chat.id === resolvedChatId);
+    if (!currentChat) {
+      setChatUser(null);
+      return;
+    }
+    setChatUser({
+      displayName: currentChat.otherUser.displayName,
+      avatar: currentChat.otherUser.avatar,
+      lastSeenAt:
+        currentChat.lastMessage?.createdAt ?? currentChat.chat.createdAt,
+    });
+  }, [resolvedChatId, userId]);
+
   useFocusEffect(
     useCallback(() => {
       void loadMessages();
-    }, [loadMessages]),
+      void loadHeaderUser();
+    }, [loadHeaderUser, loadMessages]),
   );
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerShown: true,
+      headerTitle: "",
+      headerLeft: () => (
+        <View style={styles.headerLeft}>
+          <Pressable
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+            hitSlop={10}
+          >
+            <Ionicons name="chevron-back" size={22} color={theme.colors.text} />
+          </Pressable>
+          {chatUser?.avatar ? (
+            <Image
+              source={{ uri: chatUser.avatar }}
+              style={styles.avatarImage}
+            />
+          ) : null}
+          <View style={styles.headerText}>
+            <Text
+              style={[styles.headerName, { color: theme.colors.text }]}
+              numberOfLines={1}
+            >
+              {chatUser?.displayName ?? "Chat"}
+            </Text>
+            <Text
+              style={[styles.headerLastSeen, { color: theme.colors.mutedText }]}
+              numberOfLines={1}
+            >
+              {chatUser ? formatLastSeen(chatUser.lastSeenAt) : ""}
+            </Text>
+          </View>
+        </View>
+      ),
+    });
+  }, [chatUser, navigation, theme.colors.mutedText, theme.colors.text]);
 
   const onSend = useCallback(async () => {
     if (!userId || !resolvedChatId || !draft.trim() || sending) {
@@ -110,25 +196,15 @@ export default function ChatScreen() {
   );
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-      edges={["top", "bottom"]}
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? headerHeight - 20 : 0}
     >
-      <KeyboardAvoidingView
-        style={styles.inner}
-        behavior={
-          Platform.OS === "ios"
-            ? "padding"
-            : Platform.OS === "android"
-              ? "height"
-              : undefined
-        }
-        keyboardVerticalOffset={8}
+      <SafeAreaView
+        style={[styles.inner, { backgroundColor: theme.colors.background }]}
+        edges={["top"]}
       >
-        <View style={styles.topBar}>
-          <Button title="Back" onPress={() => router.back()} />
-        </View>
-
         <FlatList
           ref={listRef}
           data={messages}
@@ -158,6 +234,7 @@ export default function ChatScreen() {
             {
               borderColor: theme.colors.border,
               backgroundColor: theme.colors.surface,
+              paddingBottom: Math.max(insets.bottom, 12),
             },
           ]}
         >
@@ -184,8 +261,8 @@ export default function ChatScreen() {
             disabled={sending || !draft.trim()}
           />
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -196,8 +273,32 @@ const styles = StyleSheet.create({
   inner: {
     flex: 1,
   },
-  topBar: {
-    padding: 12,
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    maxWidth: 280,
+  },
+  backButton: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerText: {
+    flex: 1,
+  },
+  headerName: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  headerLastSeen: {
+    fontSize: 12,
+  },
+  avatarImage: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
   },
   messages: {
     paddingHorizontal: 12,

@@ -18,6 +18,7 @@ export default function AppLayout() {
       }}
     >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="chat/[chatId]" options={{ headerShown: true }} />
     </Stack>
   );
 }
