@@ -1,4 +1,12 @@
-import { Pressable, StyleSheet, Text, View, Image } from "react-native";
+import {
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
+    Image,
+    StyleProp,
+    ViewStyle,
+} from "react-native";
 
 import { User } from "@/src/domain/types";
 import { useTheme } from "@/src/theme/ThemeProvider";
@@ -6,9 +14,10 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 type UserRowProps = {
     user: User;
     onPress: () => void;
+    style?: StyleProp<ViewStyle>;
 };
 
-export function UserRow({ user, onPress }: UserRowProps) {
+export function UserRow({ user, onPress, style }: UserRowProps) {
     const { theme } = useTheme();
 
     return (
@@ -20,6 +29,7 @@ export function UserRow({ user, onPress }: UserRowProps) {
                     backgroundColor: theme.colors.surface,
                     borderColor: theme.colors.border,
                 },
+                style,
                 pressed && styles.pressed,
             ]}
         >
@@ -44,8 +54,6 @@ const styles = StyleSheet.create({
         gap: 10,
         alignItems: "center",
         padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
     },
     pressed: {
         opacity: 0.75,

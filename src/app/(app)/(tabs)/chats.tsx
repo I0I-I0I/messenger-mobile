@@ -40,9 +40,9 @@ export default function HomeScreen() {
             <FlatList
                 data={items}
                 keyExtractor={(item) => item.chat.id}
-                contentContainerStyle={styles.list}
                 renderItem={({ item }) => (
                     <ChatRow
+                        style={styles.listItem}
                         item={item}
                         onPress={() => {
                             router.push({
@@ -70,14 +70,9 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingLeft: 16,
-        paddingRight: 16,
-        gap: 12,
     },
-    list: {
-        paddingTop: 16,
-        paddingBottom: 16,
-        gap: 10,
+    listItem: {
+        borderBottomWidth: 1,
     },
     empty: {
         textAlign: "center",

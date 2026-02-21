@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text } from "react-native";
+import { Pressable, StyleProp, StyleSheet, Text } from "react-native";
 
 import { useTheme } from "@/src/theme/ThemeProvider";
 
@@ -6,9 +6,15 @@ type ButtonProps = {
     title: string;
     onPress: () => void;
     disabled?: boolean;
+    style?: StyleProp<any>;
 };
 
-export function Button({ title, onPress, disabled = false }: ButtonProps) {
+export function Button({
+    title,
+    onPress,
+    style = {},
+    disabled = false,
+}: ButtonProps) {
     const { theme } = useTheme();
 
     return (
@@ -18,6 +24,7 @@ export function Button({ title, onPress, disabled = false }: ButtonProps) {
             style={({ pressed }) => [
                 styles.button,
                 { backgroundColor: theme.colors.primary },
+                style,
                 disabled ? styles.disabled : null,
                 pressed && !disabled ? styles.pressed : null,
             ]}
@@ -29,7 +36,7 @@ export function Button({ title, onPress, disabled = false }: ButtonProps) {
 
 const styles = StyleSheet.create({
     button: {
-        borderRadius: 10,
+        borderRadius: 8,
         paddingVertical: 12,
         paddingHorizontal: 16,
         alignItems: "center",

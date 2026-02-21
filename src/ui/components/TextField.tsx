@@ -1,23 +1,32 @@
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import {
+    StyleProp,
+    StyleSheet,
+    Text,
+    TextInput,
+    TextStyle,
+    View,
+} from "react-native";
 
 import { useTheme } from "@/src/theme/ThemeProvider";
 
 type TextFieldProps = {
-    label: string;
     value: string;
+    label?: string;
     onChangeText?: (text: string) => void;
     placeholder?: string;
     secureTextEntry?: boolean;
     autoCapitalize?: "none" | "sentences" | "words" | "characters";
+    style?: StyleProp<TextStyle>;
 };
 
 export function TextField({
-    label,
+    label = "",
     value,
     onChangeText,
     placeholder,
     secureTextEntry = false,
     autoCapitalize = "none",
+    style = {},
 }: TextFieldProps) {
     const { theme } = useTheme();
 
@@ -39,9 +48,10 @@ export function TextField({
                     styles.input,
                     {
                         borderColor: theme.colors.border,
-                        backgroundColor: theme.colors.surface,
+                        backgroundColor: theme.colors.inputBackground,
                         color: theme.colors.text,
                     },
+                    style,
                 ]}
             />
         </View>
@@ -57,9 +67,7 @@ const styles = StyleSheet.create({
         fontWeight: "600",
     },
     input: {
-        borderWidth: 1,
-        borderRadius: 10,
         paddingHorizontal: 12,
-        paddingVertical: 10,
+        paddingVertical: 16,
     },
 });

@@ -9,6 +9,7 @@ export type AppTheme = {
     colors: {
         background: string;
         surface: string;
+        inputBackground: string;
         text: string;
         mutedText: string;
         primary: string;
@@ -24,6 +25,7 @@ export const lightTheme: AppTheme = {
     colors: {
         background: "#f3f4f6",
         surface: "#ffffff",
+        inputBackground: "#e5e7eb",
         text: "#111827",
         mutedText: "#6b7280",
         primary: "#1f6feb",
@@ -39,6 +41,7 @@ export const darkTheme: AppTheme = {
     colors: {
         background: "#0f172a",
         surface: "#111827",
+        inputBackground: "#1f2937",
         text: "#f9fafb",
         mutedText: "#94a3b8",
         primary: "#60a5fa",

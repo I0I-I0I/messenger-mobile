@@ -72,9 +72,9 @@ export default function FriendsScreen() {
             <FlatList
                 data={users}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.list}
                 renderItem={({ item }) => (
                     <UserRow
+                        style={styles.listItem}
                         user={item}
                         onPress={() => void openChat(item.id)}
                     />
@@ -97,13 +97,9 @@ export default function FriendsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingLeft: 16,
-        paddingRight: 16,
-        paddingTop: 16,
-        gap: 12,
     },
-    list: {
-        gap: 10,
+    listItem: {
+        borderBottomWidth: 1,
     },
     empty: {
         textAlign: "center",

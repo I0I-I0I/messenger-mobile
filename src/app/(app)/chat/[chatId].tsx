@@ -23,6 +23,7 @@ import {
     useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
+import SendIcon from "@/assets/icons/send.svg";
 import { getChatById, getChatsForUser } from "@/src/service/chats";
 import { getListMessages, sendMessage } from "@/src/service/messages";
 import { Message } from "@/src/domain/types";
@@ -30,7 +31,6 @@ import { ChatState, useChatStore } from "@/src/state/useChatStore";
 import { SessionState, useSessionStore } from "@/src/state/useSessionStore";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { MessageBubble } from "@/src/ui/components/MessageBubble";
-import { Button } from "@/src/ui/components/Button";
 
 type HeaderChatUser = {
     displayName: string;
@@ -256,7 +256,7 @@ export default function ChatScreen() {
                         {
                             borderColor: theme.colors.border,
                             backgroundColor: theme.colors.surface,
-                            paddingBottom: Math.max(insets.bottom, 12),
+                            paddingBottom: Math.max(insets.bottom, 10),
                         },
                     ]}
                 >
@@ -267,7 +267,7 @@ export default function ChatScreen() {
                             styles.input,
                             {
                                 borderColor: theme.colors.border,
-                                backgroundColor: theme.colors.background,
+                                backgroundColor: theme.colors.inputBackground,
                                 color: theme.colors.text,
                             },
                         ]}
@@ -277,11 +277,21 @@ export default function ChatScreen() {
                         onSubmitEditing={() => void onSend()}
                         onKeyPress={onInputKeyPress}
                     />
-                    <Button
-                        title={sending ? "Отправка..." : " > "}
+                    <Pressable
+                        style={[
+                            styles.sendButton,
+                            {
+                                backgroundColor: theme.colors.primary,
+                                opacity:
+                                    sending || !draft.trim() ? 0.5 : 1,
+                            },
+                        ]}
                         onPress={() => void onSend()}
                         disabled={sending || !draft.trim()}
-                    />
+                        hitSlop={6}
+                    >
+                        <SendIcon width={20} height={20} color="#ffffff" />
+                    </Pressable>
                 </View>
             </SafeAreaView>
         </KeyboardAvoidingView>
@@ -329,17 +339,33 @@ const styles = StyleSheet.create({
     },
     composer: {
         flexDirection: "row",
-        gap: 8,
-        padding: 12,
+        gap: 10,
+        paddingHorizontal: 12,
+        paddingTop: 10,
         borderTopWidth: 1,
         alignItems: "center",
+        shadowColor: "#000",
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        shadowOffset: {
+            width: 0,
+            height: -3,
+        },
+        elevation: 6,
     },
     input: {
         flex: 1,
         borderWidth: 1,
-        borderRadius: 10,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
+        borderRadius: 16,
+        paddingHorizontal: 16,
+        paddingVertical: 13,
+    },
+    sendButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        alignItems: "center",
+        justifyContent: "center",
     },
     empty: {
         textAlign: "center",

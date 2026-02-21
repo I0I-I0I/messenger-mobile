@@ -95,23 +95,25 @@ export default function RegisterScreen() {
                         Регистрация
                     </Text>
                     <TextField
-                        label="Логин"
+                        placeholder="Логин"
                         value={username}
                         onChangeText={setUsername}
+                        style={styles.input}
                         autoCapitalize="none"
                     />
                     <TextField
-                        label="Имя"
+                        placeholder="Имя пользователя"
                         value={displayName}
                         onChangeText={setDisplayName}
+                        style={styles.input}
                         autoCapitalize="words"
                     />
                     <TextField
-                        label="Пароль"
+                        placeholder="Пароль (Не менее 6 символов)"
                         value={password}
                         onChangeText={setPassword}
+                        style={styles.input}
                         secureTextEntry
-                        placeholder="Как минимум 6 символов"
                     />
 
                     {error ? (
@@ -137,6 +139,7 @@ export default function RegisterScreen() {
 
                     <Link
                         href="/(auth)/login"
+                        replace
                         style={[styles.link, { color: theme.colors.primary }]}
                     >
                         Уже есть аккаунт? Войти
@@ -156,7 +159,7 @@ const styles = StyleSheet.create({
     },
     content: {
         flexGrow: 1,
-        padding: 20,
+        padding: 16,
         justifyContent: "center",
         gap: 12,
     },
@@ -164,6 +167,9 @@ const styles = StyleSheet.create({
         fontSize: 28,
         fontWeight: "700",
         marginBottom: 8,
+    },
+    input: {
+        borderRadius: 8,
     },
     link: {
         textAlign: "center",

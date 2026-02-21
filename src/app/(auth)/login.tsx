@@ -71,15 +71,17 @@ export default function LoginScreen() {
                         Войти
                     </Text>
                     <TextField
-                        label="Логин"
+                        placeholder="Логин"
                         value={username}
                         onChangeText={setUsername}
+                        style={styles.input}
                         autoCapitalize="none"
                     />
                     <TextField
-                        label="Пароль"
+                        placeholder="Пароль"
                         value={password}
                         onChangeText={setPassword}
+                        style={styles.input}
                         secureTextEntry
                     />
 
@@ -129,6 +131,9 @@ const styles = StyleSheet.create({
         fontSize: 28,
         fontWeight: "700",
         marginBottom: 8,
+    },
+    input: {
+        borderRadius: 8,
     },
     link: {
         textAlign: "center",

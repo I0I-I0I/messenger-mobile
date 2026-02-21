@@ -1,4 +1,12 @@
-import { Pressable, StyleSheet, Text, View, Image } from "react-native";
+import {
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
+    Image,
+    StyleProp,
+    ViewStyle,
+} from "react-native";
 
 import { ChatListItem } from "@/src/domain/types";
 import { useTheme } from "@/src/theme/ThemeProvider";
@@ -6,6 +14,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 type ChatRowProps = {
     item: ChatListItem;
     onPress: () => void;
+    style?: StyleProp<ViewStyle>;
 };
 
 function formatTime(timestamp: number) {
@@ -15,7 +24,7 @@ function formatTime(timestamp: number) {
     });
 }
 
-export function ChatRow({ item, onPress }: ChatRowProps) {
+export function ChatRow({ item, onPress, style }: ChatRowProps) {
     const { theme } = useTheme();
 
     return (
@@ -27,6 +36,7 @@ export function ChatRow({ item, onPress }: ChatRowProps) {
                     backgroundColor: theme.colors.surface,
                     borderColor: theme.colors.border,
                 },
+                style,
                 pressed && styles.pressed,
             ]}
         >
@@ -64,8 +74,6 @@ const styles = StyleSheet.create({
         gap: 10,
         alignItems: "center",
         padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
     },
     pressed: {
         opacity: 0.75,
