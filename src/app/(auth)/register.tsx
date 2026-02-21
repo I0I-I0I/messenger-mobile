@@ -1,8 +1,9 @@
-import { Link, router } from "expo-router";
+import { router } from "expo-router";
 import { useState } from "react";
 import {
     KeyboardAvoidingView,
     Platform,
+    Pressable,
     ScrollView,
     StyleSheet,
     Text,
@@ -10,6 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { validateRegistrationInput } from "@/src/domain/validators";
+import { backOrReplace } from "@/src/navigation/authNavigation";
 import { SessionState, useSessionStore } from "@/src/state/useSessionStore";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { Button } from "@/src/ui/components/Button";
@@ -75,6 +77,10 @@ export default function RegisterScreen() {
         }
     }
 
+    function onGoToLogin() {
+        backOrReplace("/(auth)/login");
+    }
+
     return (
         <KeyboardAvoidingView
             style={styles.keyboardAvoiding}
@@ -137,13 +143,16 @@ export default function RegisterScreen() {
                         disabled={loading}
                     />
 
-                    <Link
-                        href="/(auth)/login"
-                        replace
-                        style={[styles.link, { color: theme.colors.primary }]}
-                    >
-                        Уже есть аккаунт? Войти
-                    </Link>
+                    <Pressable onPress={onGoToLogin}>
+                        <Text
+                            style={[
+                                styles.link,
+                                { color: theme.colors.primary },
+                            ]}
+                        >
+                            Уже есть аккаунт? Войти
+                        </Text>
+                    </Pressable>
                 </ScrollView>
             </SafeAreaView>
         </KeyboardAvoidingView>

@@ -1,10 +1,11 @@
-import { Tabs, router } from "expo-router";
+import { Tabs } from "expo-router";
 import { View } from "react-native";
 
 import SearchIcon from "@/assets/icons/search.svg";
 import ChatIcon from "@/assets/icons/chat.svg";
 import SettingsIcon from "@/assets/icons/settings.svg";
 
+import { replaceToLogin } from "@/src/navigation/authNavigation";
 import { SessionState, useSessionStore } from "@/src/state/useSessionStore";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { Button } from "@/src/ui/components/Button";
@@ -15,7 +16,7 @@ export default function TabLayout() {
 
     async function onLogout() {
         await logout();
-        router.replace("/(auth)/login");
+        replaceToLogin();
     }
 
     return (

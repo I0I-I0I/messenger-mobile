@@ -1,4 +1,4 @@
-import { Link, router } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { useState } from "react";
 import {
     KeyboardAvoidingView,
@@ -17,6 +17,7 @@ import { TextField } from "@/src/ui/components/TextField";
 
 export default function LoginScreen() {
     const login = useSessionStore((state: SessionState) => state.login);
+    const router = useRouter();
     const { theme } = useTheme();
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
