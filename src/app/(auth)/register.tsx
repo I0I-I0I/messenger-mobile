@@ -10,12 +10,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { validateRegistrationInput } from "@/src/domain/validators";
+import config from "@/src/config";
 import { backOrReplace } from "@/src/navigation/authNavigation";
 import { SessionState, useSessionStore } from "@/src/state/useSessionStore";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { Button } from "@/src/ui/components/Button";
 import { TextField } from "@/src/ui/components/TextField";
+import { registerWithPassword } from "@/src/usecases/auth";
 
 export default function RegisterScreen() {
     const login = useSessionStore((state: SessionState) => state.login);
@@ -27,51 +28,28 @@ export default function RegisterScreen() {
     const [loading, setLoading] = useState(false);
 
     async function onRegister() {
-        const validationError = validateRegistrationInput(
-            username,
-            displayName,
-            password,
-        );
-        if (validationError) {
-            setError(validationError);
-            return;
-        }
-
         setError(null);
         setLoading(true);
 
         try {
-            const user = await new Promise<{ id: string }>((res) => {
-                setTimeout(() => {
-                    res({ id: "1" });
-                });
+            const session = await registerWithPassword({
+                username,
+                displayName,
+                password,
             });
-            await login(user.id);
+            await login(session.userId);
             router.replace("/(app)/(tabs)/chats");
         } catch (error) {
-            const message =
-                error instanceof Error ? error.message : "Unknown error";
-            const normalized = message.toLowerCase();
+            const message = error instanceof Error ? error.message : "UNKNOWN";
 
-            if (
-                normalized.includes("unique") &&
-                normalized.includes("username")
-            ) {
+            if (message === "USERNAME_TAKEN") {
                 setError("Такой логин уже существует.");
                 return;
             }
 
-            if (
-                normalized.includes("not null") &&
-                normalized.includes("username")
-            ) {
-                setError(
-                    "В вашем браузере хранятся старые локальные данные. Попробуйте ввести новое имя пользователя один раз или удалите данные сайта и повторите попытку.",
-                );
-                return;
-            }
-
-            setError(`Не получается создать аккаунт. ${message}`);
+            setError(
+                `Не получается создать аккаунт. ${config.DEBUG ? message : ""}`,
+            );
         } finally {
             setLoading(false);
         }

@@ -6,6 +6,7 @@ type MessageBubbleProps = {
     body: string;
     mine: boolean;
     timestamp: number;
+    status?: "pending" | "sent" | "failed";
 };
 
 function formatTime(timestamp: number) {
@@ -15,7 +16,22 @@ function formatTime(timestamp: number) {
     });
 }
 
-export function MessageBubble({ body, mine, timestamp }: MessageBubbleProps) {
+function statusLabel(status: "pending" | "sent" | "failed" | undefined) {
+    if (status === "pending") {
+        return " • sending";
+    }
+    if (status === "failed") {
+        return " • failed";
+    }
+    return "";
+}
+
+export function MessageBubble({
+    body,
+    mine,
+    timestamp,
+    status,
+}: MessageBubbleProps) {
     const { theme } = useTheme();
 
     return (
@@ -49,6 +65,7 @@ export function MessageBubble({ body, mine, timestamp }: MessageBubbleProps) {
                     ]}
                 >
                     {formatTime(timestamp)}
+                    {mine ? statusLabel(status) : ""}
                 </Text>
             </View>
         </View>

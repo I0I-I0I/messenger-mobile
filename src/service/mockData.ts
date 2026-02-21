@@ -104,6 +104,7 @@ export const INITIAL_MESSAGES_BY_CHAT_ID: Record<string, Message[]> =
                 senderId: secondSpeaker,
                 content: openers[index % openers.length],
                 createdAt: chat.createdAt + 5 * MINUTE,
+                status: "sent",
             },
             {
                 id: `${chat.id}_m2`,
@@ -111,6 +112,7 @@ export const INITIAL_MESSAGES_BY_CHAT_ID: Record<string, Message[]> =
                 senderId: chat.userA,
                 content: "Yep, I am on it.",
                 createdAt: chat.createdAt + 15 * MINUTE,
+                status: "sent",
             },
             {
                 id: `${chat.id}_m3`,
@@ -118,6 +120,7 @@ export const INITIAL_MESSAGES_BY_CHAT_ID: Record<string, Message[]> =
                 senderId: secondSpeaker,
                 content: "Great, thanks.",
                 createdAt: chat.createdAt + 25 * MINUTE,
+                status: "sent",
             },
         ];
         return acc;

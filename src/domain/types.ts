@@ -23,6 +23,7 @@ export type Message = {
     senderId: string;
     content: string;
     createdAt: number;
+    status: "pending" | "sent" | "failed";
 };
 
 export type ChatListItem = {

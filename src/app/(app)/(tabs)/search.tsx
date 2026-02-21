@@ -3,13 +3,13 @@ import { useEffect, useState } from "react";
 import { FlatList, StyleSheet, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { findOrCreateDirectChat } from "@/src/service/chats";
-import { searchUsers } from "@/src/service/users";
 import { User } from "@/src/domain/types";
 import { SessionState, useSessionStore } from "@/src/state/useSessionStore";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { TextField } from "@/src/ui/components/TextField";
 import { UserRow } from "@/src/ui/components/UserRow";
+import { openOrCreateDirectChat } from "@/src/usecases/chats";
+import { searchUsersByQuery } from "@/src/usecases/users";
 
 export default function FriendsScreen() {
     const userId = useSessionStore((state: SessionState) => state.userId);
@@ -27,7 +27,7 @@ export default function FriendsScreen() {
                 }
                 return;
             }
-            const result = await searchUsers({ query: query, limit: 10 });
+            const result = await searchUsersByQuery({ query, limit: 10 });
             if (active) {
                 setUsers(result);
             }
@@ -44,7 +44,7 @@ export default function FriendsScreen() {
         if (!userId) {
             return;
         }
-        const chat = await findOrCreateDirectChat({
+        const chat = await openOrCreateDirectChat({
             currentUserId: userId,
             otherUserId: otherUserId,
         });
@@ -72,13 +72,19 @@ export default function FriendsScreen() {
             <FlatList
                 data={users}
                 keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                    <UserRow
-                        style={styles.listItem}
-                        user={item}
-                        onPress={() => void openChat(item.id)}
-                    />
-                )}
+                renderItem={({ item }) => {
+                    if (item.id === userId) {
+                        return null;
+                    }
+
+                    return (
+                        <UserRow
+                            style={styles.listItem}
+                            user={item}
+                            onPress={() => void openChat(item.id)}
+                        />
+                    );
+                }}
                 ListEmptyComponent={
                     <Text
                         style={[

@@ -1,10 +1,8 @@
 import { create } from "zustand";
 
-import {
-    clearCurrentUserId,
-    getCurrentUserId,
-    setCurrentUserId,
-} from "@/src/session/session";
+import { initDb } from "@/src/db";
+import { logoutCurrentSession } from "@/src/usecases/auth";
+import { getSession, setSession } from "@/src/repository/sessionRepository";
 
 export type SessionState = {
     userId: string | null;
@@ -18,15 +16,17 @@ export const useSessionStore = create<SessionState>((set: any) => ({
     userId: null,
     hydrated: false,
     hydrate: async () => {
-        const userId = await getCurrentUserId();
+        await initDb();
+        const session = await getSession();
+        const userId = session?.userId ?? null;
         set({ userId, hydrated: true });
     },
     login: async (userId: string) => {
-        await setCurrentUserId(userId);
+        await setSession(userId);
         set({ userId, hydrated: true });
     },
     logout: async () => {
-        await clearCurrentUserId();
+        await logoutCurrentSession();
         set({ userId: null, hydrated: true });
     },
 }));

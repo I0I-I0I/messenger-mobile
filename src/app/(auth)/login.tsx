@@ -9,11 +9,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { hashPassword } from "@/src/domain/validators";
 import { SessionState, useSessionStore } from "@/src/state/useSessionStore";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { Button } from "@/src/ui/components/Button";
 import { TextField } from "@/src/ui/components/TextField";
+import { loginWithPassword } from "@/src/usecases/auth";
+import { clearDb } from "@/src/db";
 
 export default function LoginScreen() {
     const login = useSessionStore((state: SessionState) => state.login);
@@ -29,24 +30,23 @@ export default function LoginScreen() {
         setLoading(true);
 
         try {
-            const user = {
-                id: "1",
-                email: "test@example.com",
-                passwordHash: await hashPassword("123456"),
-            };
-            if (!user) {
+            const session = await loginWithPassword({
+                username,
+                password,
+            });
+            await login(session.userId);
+            router.replace("/(app)/(tabs)/chats");
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "UNKNOWN";
+            if (message === "USER_NOT_FOUND") {
                 setError("Пользователь не найден");
                 return;
             }
-
-            const hash = await hashPassword(password);
-            if (hash !== user.passwordHash) {
+            if (message === "INVALID_PASSWORD") {
                 setError("Неправильный пароль");
                 return;
             }
-
-            await login(user.id);
-            router.replace("/(app)/(tabs)/chats");
+            setError("Ошибка входа");
         } finally {
             setLoading(false);
         }
@@ -109,6 +109,7 @@ export default function LoginScreen() {
                     >
                         Создать аккаунт
                     </Link>
+                    <Button title="Reset DB" onPress={() => void clearDb()} />
                 </ScrollView>
             </SafeAreaView>
         </KeyboardAvoidingView>

@@ -35,6 +35,7 @@ export const sendMessage = async ({
         senderId,
         content,
         createdAt: Date.now(),
+        status: "sent",
     };
 
     const existing = messagesByChatId.get(chatId) ?? [];

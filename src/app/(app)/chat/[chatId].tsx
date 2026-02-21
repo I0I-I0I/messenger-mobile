@@ -24,13 +24,16 @@ import {
 } from "react-native-safe-area-context";
 
 import SendIcon from "@/assets/icons/send.svg";
-import { getChatById, getChatsForUser } from "@/src/service/chats";
-import { getListMessages, sendMessage } from "@/src/service/messages";
 import { Message } from "@/src/domain/types";
 import { ChatState, useChatStore } from "@/src/state/useChatStore";
 import { SessionState, useSessionStore } from "@/src/state/useSessionStore";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { MessageBubble } from "@/src/ui/components/MessageBubble";
+import { loadChats } from "@/src/usecases/chats";
+import {
+    loadMessages as loadMessagesUseCase,
+    sendMessage,
+} from "@/src/usecases/messages";
 
 type HeaderChatUser = {
     displayName: string;
@@ -76,12 +79,12 @@ export default function ChatScreen() {
         };
     });
 
-    const loadMessages = useCallback(async () => {
+    const refreshMessages = useCallback(async () => {
         if (!resolvedChatId) {
             setMessages([]);
             return;
         }
-        const result = await getListMessages({ chatId: resolvedChatId });
+        const result = await loadMessagesUseCase(resolvedChatId);
         setMessages(result);
         requestAnimationFrame(() =>
             listRef.current?.scrollToEnd({ animated: true }),
@@ -93,7 +96,7 @@ export default function ChatScreen() {
             setChatUser(null);
             return;
         }
-        const chats = await getChatsForUser({ userId });
+        const chats = await loadChats(userId);
         const currentChat = chats.find(
             (item) => item.chat.id === resolvedChatId,
         );
@@ -112,9 +115,9 @@ export default function ChatScreen() {
 
     useFocusEffect(
         useCallback(() => {
-            void loadMessages();
+            void refreshMessages();
             void loadHeaderUser();
-        }, [loadHeaderUser, loadMessages]),
+        }, [loadHeaderUser, refreshMessages]),
     );
 
     useEffect(() => {
@@ -185,18 +188,17 @@ export default function ChatScreen() {
             setDraft(resolvedChatId, "");
             setMessages((prev) => [...prev, message]);
 
-            const chat = await getChatById({ chatId: resolvedChatId });
-            if (!chat) {
-                return;
-            }
-
             if (timerRef.current) {
                 clearTimeout(timerRef.current);
             }
+
+            timerRef.current = setTimeout(() => {
+                void refreshMessages();
+            }, 200);
         } finally {
             setSending(false);
         }
-    }, [draft, resolvedChatId, sending, setDraft, userId]);
+    }, [draft, refreshMessages, resolvedChatId, sending, setDraft, userId]);
 
     const onInputKeyPress = useCallback(
         (event: TextInputKeyPressEvent) => {
@@ -231,6 +233,7 @@ export default function ChatScreen() {
                             body={item.content}
                             mine={item.senderId === userId}
                             timestamp={item.createdAt}
+                            status={item.status}
                         />
                     )}
                     contentContainerStyle={styles.messages}
@@ -344,14 +347,7 @@ const styles = StyleSheet.create({
         paddingTop: 10,
         borderTopWidth: 1,
         alignItems: "center",
-        shadowColor: "#000",
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        shadowOffset: {
-            width: 0,
-            height: -3,
-        },
-        elevation: 6,
+        boxShadow: "0px -3px 8px rgba(0, 0, 0, 0.08)",
     },
     input: {
         flex: 1,

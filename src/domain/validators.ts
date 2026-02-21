@@ -13,7 +13,7 @@ export function validateRegistrationInput(
     password: string,
 ) {
     if (username.length < 3) {
-        return "Логин должен быть не длиннее 3 символов.";
+        return "Логин должен быть не короче 3 символов.";
     }
     if (!/^[a-zA-Z0-9_]+$/.test(username)) {
         return "Username может содержать только - буквы, цифры, и символ подчёркивания.";

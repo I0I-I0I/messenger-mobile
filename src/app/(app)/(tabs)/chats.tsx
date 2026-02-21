@@ -7,7 +7,7 @@ import { SessionState, useSessionStore } from "@/src/state/useSessionStore";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { ChatRow } from "@/src/ui/components/ChatRow";
 import { ChatListItem } from "@/src/domain/types";
-import { getChatsForUser } from "@/src/service/chats";
+import { loadChats } from "@/src/usecases/chats";
 
 export default function HomeScreen() {
     const userId = useSessionStore((state: SessionState) => state.userId);
@@ -19,7 +19,7 @@ export default function HomeScreen() {
             setItems([]);
             return;
         }
-        const result = await getChatsForUser({ userId: "1" });
+        const result = await loadChats(userId);
         setItems(result);
     }, [userId]);
 
