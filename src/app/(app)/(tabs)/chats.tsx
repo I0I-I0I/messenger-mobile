@@ -35,7 +35,7 @@ export default function HomeScreen() {
                 styles.container,
                 { backgroundColor: theme.colors.background },
             ]}
-            edges={["bottom"]}
+            edges={[]}
         >
             <FlatList
                 data={items}
@@ -70,12 +70,14 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 16,
+        paddingLeft: 16,
+        paddingRight: 16,
         gap: 12,
     },
     list: {
+        paddingTop: 16,
+        paddingBottom: 16,
         gap: 10,
-        paddingBottom: 24,
     },
     empty: {
         textAlign: "center",

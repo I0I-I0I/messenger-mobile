@@ -15,7 +15,7 @@ export default function SettingsScreen() {
                 styles.container,
                 { backgroundColor: theme.colors.background },
             ]}
-            edges={["bottom"]}
+            edges={[]}
         >
             <View
                 style={[

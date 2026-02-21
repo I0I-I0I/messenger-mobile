@@ -27,7 +27,7 @@ export default function FriendsScreen() {
                 }
                 return;
             }
-            const result = await searchUsers({ limit: 10 });
+            const result = await searchUsers({ query: query, limit: 10 });
             if (active) {
                 setUsers(result);
             }
@@ -60,7 +60,7 @@ export default function FriendsScreen() {
                 styles.container,
                 { backgroundColor: theme.colors.background },
             ]}
-            edges={["bottom"]}
+            edges={[]}
         >
             <TextField
                 label=""
@@ -97,12 +97,13 @@ export default function FriendsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 16,
+        paddingLeft: 16,
+        paddingRight: 16,
+        paddingTop: 16,
         gap: 12,
     },
     list: {
         gap: 10,
-        paddingBottom: 24,
     },
     empty: {
         textAlign: "center",
