@@ -2,7 +2,7 @@ import {
     getConversationById,
     upsertConversation,
 } from "@/src/db/queries/conversations";
-import { upsertUser } from "@/src/db/queries/users";
+import { getUserById, upsertUser } from "@/src/db/queries/users";
 import { upsertServerMessage } from "@/src/repository/messageRepository";
 import {
     normalizeConversation,
@@ -12,15 +12,55 @@ import {
 } from "@/src/sync/normalizers";
 import type { ApiUserDto, ConversationDto, MessageDto } from "@/src/transport/rest/types";
 
-function extractConversationMembers(conversation: ConversationDto | unknown) {
+function appendUserCandidate(output: unknown[], value: unknown) {
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            appendUserCandidate(output, item);
+        }
+        return;
+    }
+
+    if (typeof value === "object" && value !== null) {
+        const record = value as Record<string, unknown>;
+        output.push(record);
+
+        const nestedCandidates = [
+            record.user,
+            record.profile,
+            record.member,
+            record.account,
+        ];
+        for (const nested of nestedCandidates) {
+            if (typeof nested === "object" && nested !== null) {
+                output.push(nested);
+            }
+        }
+    }
+}
+
+export function extractConversationUsers(
+    conversation: ConversationDto | unknown,
+) {
     const record =
         typeof conversation === "object" && conversation !== null
             ? (conversation as Record<string, unknown>)
             : null;
-    if (!record || !Array.isArray(record.members)) {
+    if (!record) {
         return [];
     }
-    return record.members;
+
+    const candidates: unknown[] = [];
+    appendUserCandidate(candidates, record.members);
+    appendUserCandidate(candidates, record.users);
+    appendUserCandidate(candidates, record.participants);
+    appendUserCandidate(candidates, record.participant_users);
+    appendUserCandidate(candidates, record.participantUsers);
+    appendUserCandidate(candidates, record.other_user);
+    appendUserCandidate(candidates, record.otherUser);
+    appendUserCandidate(candidates, record.peer);
+    appendUserCandidate(candidates, record.counterpart);
+
+    return candidates;
 }
 
 async function upsertNormalizedConversation(
@@ -36,6 +76,23 @@ async function upsertNormalizedConversation(
         lastMessagePreview: normalizedConversation.lastMessagePreview,
         lastMessageAt: normalizedConversation.lastMessageAt,
         unreadCount: normalizedConversation.unreadCount,
+    });
+}
+
+async function ensureUserExists(userId: string) {
+    const existing = await getUserById(userId);
+    if (existing) {
+        return;
+    }
+
+    const now = Date.now();
+    await upsertUser({
+        id: userId,
+        username: userId,
+        displayName: "",
+        avatar: null,
+        createdAt: now,
+        updatedAt: now,
     });
 }
 
@@ -73,7 +130,15 @@ export async function applyConversations(input: {
         }
 
         await upsertNormalizedConversation(normalized);
-        await applyUsers(extractConversationMembers(conversationDto));
+        await applyUsers(extractConversationUsers(conversationDto));
+
+        const otherUserId =
+            normalized.userA === input.currentUserId
+                ? normalized.userB
+                : normalized.userA;
+        if (otherUserId && otherUserId !== input.currentUserId) {
+            await ensureUserExists(otherUserId);
+        }
     }
 }
 
@@ -85,6 +150,12 @@ export async function applyMessages(input: {
         const message = normalizeMessage(messageDto);
         if (!message) {
             continue;
+        }
+
+        if (message.sender) {
+            await applyUsers([message.sender]);
+        } else if (message.senderId !== input.currentUserId) {
+            await ensureUserExists(message.senderId);
         }
 
         const conversation = await getConversationById(message.conversationId);

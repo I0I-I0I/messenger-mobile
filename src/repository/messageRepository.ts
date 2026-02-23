@@ -12,6 +12,7 @@ import {
     updateMessageDelivery,
     updateMessageStatus,
 } from "@/src/db/queries/messages";
+import { emitMessagesChanged } from "@/src/sync/dataEvents";
 
 function toMessage(row: {
     id: string;
@@ -60,6 +61,7 @@ export async function enqueueSendMessage(input: {
         lastMessagePreview: input.content,
         lastMessageAt: now,
     });
+    emitMessagesChanged(input.chatId);
 
     await enqueueOutbox({
         id: createId("outbox"),
@@ -81,11 +83,17 @@ export async function enqueueSendMessage(input: {
 
 export async function markMessageAsSent(messageId: string) {
     const updated = await updateMessageStatus(messageId, "sent");
+    if (updated) {
+        emitMessagesChanged(updated.conversationId);
+    }
     return updated ? toMessage(updated) : null;
 }
 
 export async function markMessageAsFailed(messageId: string) {
     const updated = await updateMessageStatus(messageId, "failed");
+    if (updated) {
+        emitMessagesChanged(updated.conversationId);
+    }
     return updated ? toMessage(updated) : null;
 }
 
@@ -164,6 +172,7 @@ export async function upsertServerMessage(input: {
                 lastMessagePreview: updated.content,
                 lastMessageAt: updated.createdAt,
             });
+            emitMessagesChanged(input.conversationId);
             return toMessage(updated);
         }
     }
@@ -206,6 +215,7 @@ export async function upsertServerMessage(input: {
         lastMessagePreview: inserted.content,
         lastMessageAt: inserted.createdAt,
     });
+    emitMessagesChanged(input.conversationId);
 
     return toMessage(inserted);
 }
@@ -247,6 +257,7 @@ export async function reconcilePendingMessageFromRealtime(input: {
         lastMessagePreview: updated.content,
         lastMessageAt: updated.createdAt,
     });
+    emitMessagesChanged(input.conversationId);
 
     return toMessage(updated);
 }

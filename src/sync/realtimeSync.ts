@@ -3,11 +3,12 @@ import {
     upsertConversation,
     updateConversationFromServer,
 } from "@/src/db/queries/conversations";
+import { upsertUser } from "@/src/db/queries/users";
 import {
     reconcilePendingMessageFromRealtime,
     upsertRemoteMessageFromRealtime,
 } from "@/src/repository/messageRepository";
-import { toMillis } from "@/src/sync/normalizers";
+import { normalizeMessageSenderProfile, toMillis } from "@/src/sync/normalizers";
 import type {
     ConversationUpdatedEvent,
     MessageCreatedEvent,
@@ -28,11 +29,11 @@ async function ensureConversationForMessage(input: {
 }) {
     const existing = await getConversationById(input.conversationId);
     if (existing) {
-        return existing;
+        return { created: false };
     }
 
     const { userA, userB } = pairUsers(input.currentUserId, input.senderId);
-    return upsertConversation({
+    await upsertConversation({
         id: input.conversationId,
         userA,
         userB,
@@ -43,6 +44,7 @@ async function ensureConversationForMessage(input: {
         lastMessageAt: input.createdAt,
         unreadCount: 0,
     });
+    return { created: true };
 }
 
 async function applyMessageCreated(
@@ -51,8 +53,22 @@ async function applyMessageCreated(
 ) {
     const createdAt = toMillis(event.payload.created_at, Date.now());
     const occurredAt = toMillis(event.occurred_at, createdAt);
+    const senderProfile = normalizeMessageSenderProfile(
+        event.payload,
+        event.payload.sender_id,
+    );
+    if (senderProfile) {
+        await upsertUser({
+            id: senderProfile.id,
+            username: senderProfile.username,
+            displayName: senderProfile.displayName,
+            avatar: senderProfile.avatar,
+            createdAt: senderProfile.createdAt,
+            updatedAt: senderProfile.updatedAt,
+        });
+    }
 
-    await ensureConversationForMessage({
+    const conversationState = await ensureConversationForMessage({
         conversationId: event.conversation_id,
         currentUserId,
         senderId: event.payload.sender_id,
@@ -73,7 +89,9 @@ async function applyMessageCreated(
     });
 
     if (reconciled) {
-        return;
+        return {
+            requiresHydrationSync: conversationState.created && !senderProfile,
+        };
     }
 
     await upsertRemoteMessageFromRealtime({
@@ -85,6 +103,10 @@ async function applyMessageCreated(
         content: event.payload.content,
         createdAt,
     });
+
+    return {
+        requiresHydrationSync: conversationState.created && !senderProfile,
+    };
 }
 
 async function applyConversationUpdated(event: ConversationUpdatedEvent) {
@@ -106,11 +128,12 @@ export async function applyRealtimeEvent(input: {
     currentUserId: string;
 }) {
     if (input.event.type === "message.created") {
-        await applyMessageCreated(input.event, input.currentUserId);
-        return;
+        return applyMessageCreated(input.event, input.currentUserId);
     }
 
     if (input.event.type === "conversation.updated") {
         await applyConversationUpdated(input.event);
     }
+
+    return { requiresHydrationSync: false };
 }

@@ -12,6 +12,7 @@ import AvatarIcon from "@/assets/icons/avatar.svg";
 
 import { ChatListItem } from "@/src/domain/types";
 import { useTheme } from "@/src/theme/ThemeProvider";
+import { getChatUserDisplayName } from "@/src/usecases/chats";
 
 type ChatRowProps = {
     item: ChatListItem;
@@ -54,7 +55,7 @@ export function ChatRow({ item, onPress, style }: ChatRowProps) {
             <View style={styles.main}>
                 <View style={styles.header}>
                     <Text style={[styles.name, { color: theme.colors.text }]}>
-                        {item.otherUser.displayName}
+                        {getChatUserDisplayName(item.otherUser)}
                     </Text>
                     <Text
                         style={[styles.time, { color: theme.colors.mutedText }]}

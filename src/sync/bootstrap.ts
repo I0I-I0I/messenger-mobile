@@ -5,6 +5,8 @@ import { bootstrapSyncRequest } from "@/src/transport/rest/sync";
 export async function runBootstrapSync(currentUserId: string) {
     const payload = await bootstrapSyncRequest();
 
+    await applyUsers(payload.users ?? []);
+
     const me = normalizeUser(payload.me ?? payload.user);
     if (me) {
         await applyUsers([me]);

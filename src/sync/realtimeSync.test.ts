@@ -11,8 +11,13 @@ jest.mock("@/src/repository/messageRepository", () => ({
     upsertRemoteMessageFromRealtime: jest.fn(),
 }));
 
+jest.mock("@/src/db/queries/users", () => ({
+    upsertUser: jest.fn(),
+}));
+
 import { applyRealtimeEvent } from "@/src/sync/realtimeSync";
 import * as conversationsQuery from "@/src/db/queries/conversations";
+import * as usersQuery from "@/src/db/queries/users";
 import * as messageRepository from "@/src/repository/messageRepository";
 
 const mockedGetConversationById = jest.mocked(conversationsQuery.getConversationById);
@@ -26,6 +31,7 @@ const mockedReconcilePendingMessageFromRealtime = jest.mocked(
 const mockedUpsertRemoteMessageFromRealtime = jest.mocked(
     messageRepository.upsertRemoteMessageFromRealtime,
 );
+const mockedUpsertUser = jest.mocked(usersQuery.upsertUser);
 
 describe("applyRealtimeEvent", () => {
     beforeEach(() => {
@@ -38,7 +44,7 @@ describe("applyRealtimeEvent", () => {
             id: "m1",
         } as any);
 
-        await applyRealtimeEvent({
+        const result = await applyRealtimeEvent({
             currentUserId: "u1",
             event: {
                 type: "message.created",
@@ -58,6 +64,7 @@ describe("applyRealtimeEvent", () => {
 
         expect(mockedReconcilePendingMessageFromRealtime).toHaveBeenCalled();
         expect(mockedUpsertRemoteMessageFromRealtime).not.toHaveBeenCalled();
+        expect(result).toEqual({ requiresHydrationSync: false });
     });
 
     it("creates fallback conversation and upserts remote message when no pending match", async () => {
@@ -65,7 +72,7 @@ describe("applyRealtimeEvent", () => {
         mockedReconcilePendingMessageFromRealtime.mockResolvedValue(null);
         mockedUpsertConversation.mockResolvedValue({ id: "c1" } as any);
 
-        await applyRealtimeEvent({
+        const result = await applyRealtimeEvent({
             currentUserId: "u1",
             event: {
                 type: "message.created",
@@ -97,6 +104,44 @@ describe("applyRealtimeEvent", () => {
                 serverSeq: 15,
             }),
         );
+        expect(result).toEqual({ requiresHydrationSync: true });
+    });
+
+    it("upserts sender profile from realtime payload when provided", async () => {
+        mockedGetConversationById.mockResolvedValue({ id: "c1" } as any);
+        mockedReconcilePendingMessageFromRealtime.mockResolvedValue(null);
+        mockedUpsertRemoteMessageFromRealtime.mockResolvedValue({ id: "m1" } as any);
+
+        const result = await applyRealtimeEvent({
+            currentUserId: "u1",
+            event: {
+                type: "message.created",
+                event_id: "evt1",
+                conversation_id: "c1",
+                seq: 10,
+                occurred_at: "2026-02-23T00:00:01Z",
+                payload: {
+                    id: "srv2",
+                    sender_id: "u2",
+                    content: "hi",
+                    created_at: "2026-02-23T00:00:01Z",
+                    sender: {
+                        id: "u2",
+                        username: "alice",
+                        display_name: "Alice",
+                    },
+                },
+            },
+        });
+
+        expect(mockedUpsertUser).toHaveBeenCalledWith(
+            expect.objectContaining({
+                id: "u2",
+                username: "alice",
+                displayName: "Alice",
+            }),
+        );
+        expect(result).toEqual({ requiresHydrationSync: false });
     });
 
     it("applies conversation.updated via server update query", async () => {

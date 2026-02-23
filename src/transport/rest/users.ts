@@ -54,3 +54,18 @@ export async function searchUsersRequest(input: {
     );
     return pickUsersArray(payload) ?? [];
 }
+
+export async function batchUsersRequest(input: {
+    ids: string[];
+}) {
+    if (!Array.isArray(input.ids) || input.ids.length === 0) {
+        return [];
+    }
+
+    const payload = await restRequest<unknown>("/v1/users/batch", {
+        method: "POST",
+        body: JSON.stringify({ ids: input.ids }),
+    });
+
+    return pickUsersArray(payload) ?? [];
+}

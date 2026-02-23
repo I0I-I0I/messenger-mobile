@@ -29,6 +29,7 @@ export type NormalizedMessage = {
     id: string;
     conversationId: string;
     senderId: string;
+    sender?: NormalizedUser;
     clientMessageId?: string;
     seq?: number;
     content: string;
@@ -39,6 +40,37 @@ function asRecord(value: unknown) {
     return typeof value === "object" && value !== null
         ? (value as Record<string, unknown>)
         : null;
+}
+
+function pickString(...values: unknown[]) {
+    for (const value of values) {
+        if (typeof value === "string" && value.length > 0) {
+            return value;
+        }
+    }
+    return undefined;
+}
+
+function pickNullableString(...values: unknown[]) {
+    for (const value of values) {
+        if (typeof value === "string") {
+            return value;
+        }
+        if (value === null) {
+            return null;
+        }
+    }
+    return undefined;
+}
+
+function getRecordByKeys(record: Record<string, unknown>, keys: string[]) {
+    for (const key of keys) {
+        const candidate = asRecord(record[key]);
+        if (candidate) {
+            return candidate;
+        }
+    }
+    return null;
 }
 
 export function toMillis(value: unknown, fallback: number) {
@@ -95,6 +127,130 @@ export function normalizeUser(
     return result;
 }
 
+export function normalizeMessageSenderProfile(
+    source: unknown,
+    fallbackSenderId?: string,
+) {
+    const record = asRecord(source);
+    if (!record) {
+        return null;
+    }
+
+    const nestedUserRecord = getRecordByKeys(record, [
+        "sender",
+        "sender_user",
+        "senderUser",
+        "author",
+        "from_user",
+        "fromUser",
+        "user",
+    ]);
+    const nestedHasProfileFields = Boolean(
+        nestedUserRecord &&
+            (typeof nestedUserRecord.username === "string" ||
+                typeof nestedUserRecord.display_name === "string" ||
+                typeof nestedUserRecord.displayName === "string" ||
+                typeof nestedUserRecord.avatar_url === "string" ||
+                typeof nestedUserRecord.avatar === "string" ||
+                nestedUserRecord.avatar === null),
+    );
+    const nestedUser =
+        nestedUserRecord && nestedHasProfileFields
+            ? normalizeUser(nestedUserRecord)
+            : null;
+    const nestedUserId =
+        nestedUserRecord && typeof nestedUserRecord.id === "string"
+            ? nestedUserRecord.id
+            : undefined;
+
+    const senderId = nestedUser?.id ?? nestedUserId ?? fallbackSenderId;
+    if (!senderId) {
+        return null;
+    }
+
+    const username = pickString(
+        record.sender_username,
+        record.senderUsername,
+        nestedUser?.username,
+    );
+    const displayName = pickString(
+        record.sender_display_name,
+        record.senderDisplayName,
+        record.sender_name,
+        record.senderName,
+        nestedUser?.displayName,
+    );
+    const avatar = pickNullableString(
+        record.sender_avatar_url,
+        record.senderAvatarUrl,
+        record.sender_avatar,
+        record.senderAvatar,
+        nestedUser?.avatar,
+    );
+
+    const hasProfileData =
+        nestedHasProfileFields ||
+        Boolean(username) ||
+        Boolean(displayName) ||
+        typeof avatar !== "undefined";
+    if (!hasProfileData) {
+        return null;
+    }
+
+    const now = Date.now();
+    return {
+        id: senderId,
+        username: username ?? senderId,
+        displayName: displayName ?? username ?? senderId,
+        avatar: avatar ?? null,
+        createdAt: toMillis(
+            record.sender_created_at ??
+                record.senderCreatedAt ??
+                nestedUser?.createdAt,
+            now,
+        ),
+        updatedAt: toMillis(
+            record.sender_updated_at ??
+                record.senderUpdatedAt ??
+                nestedUser?.updatedAt,
+            now,
+        ),
+    } satisfies NormalizedUser;
+}
+
+function collectIdsFromUserLike(value: unknown, output: string[]) {
+    if (typeof value === "string") {
+        output.push(value);
+        return;
+    }
+
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            collectIdsFromUserLike(item, output);
+        }
+        return;
+    }
+
+    const record = asRecord(value);
+    if (!record) {
+        return;
+    }
+
+    if (typeof record.id === "string") {
+        output.push(record.id);
+    }
+
+    const nestedUser = getRecordByKeys(record, [
+        "user",
+        "profile",
+        "member",
+        "account",
+    ]);
+    if (nestedUser && typeof nestedUser.id === "string") {
+        output.push(nestedUser.id);
+    }
+}
+
 function extractParticipantIds(record: Record<string, unknown>) {
     const directIds: string[] = [];
 
@@ -109,17 +265,17 @@ function extractParticipantIds(record: Record<string, unknown>) {
 
     const members = record.members;
     if (Array.isArray(members)) {
-        for (const member of members) {
-            if (typeof member === "string") {
-                directIds.push(member);
-                continue;
-            }
-            const memberRecord = asRecord(member);
-            if (memberRecord && typeof memberRecord.id === "string") {
-                directIds.push(memberRecord.id);
-            }
-        }
+        collectIdsFromUserLike(members, directIds);
     }
+
+    collectIdsFromUserLike(record.users, directIds);
+    collectIdsFromUserLike(record.participants, directIds);
+    collectIdsFromUserLike(record.participant_users, directIds);
+    collectIdsFromUserLike(record.participantUsers, directIds);
+    collectIdsFromUserLike(record.other_user, directIds);
+    collectIdsFromUserLike(record.otherUser, directIds);
+    collectIdsFromUserLike(record.peer, directIds);
+    collectIdsFromUserLike(record.counterpart, directIds);
 
     if (typeof record.user_a === "string") {
         directIds.push(record.user_a);
@@ -222,11 +378,13 @@ export function normalizeMessage(
     }
 
     const seq = typeof record.seq === "number" ? record.seq : undefined;
+    const sender = normalizeMessageSenderProfile(record, senderId);
 
     return {
         id: record.id,
         conversationId,
         senderId,
+        sender: sender ?? undefined,
         clientMessageId:
             typeof record.client_message_id === "string"
                 ? record.client_message_id

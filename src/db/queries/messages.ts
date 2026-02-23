@@ -36,6 +36,28 @@ function toMessageRow(row: DbMessageRow): MessageRow {
     };
 }
 
+function compareRowsByTimeline(a: DbMessageRow, b: DbMessageRow) {
+    if (a.created_at !== b.created_at) {
+        return a.created_at - b.created_at;
+    }
+
+    const aHasSeq = typeof a.server_seq === "number";
+    const bHasSeq = typeof b.server_seq === "number";
+    if (aHasSeq !== bHasSeq) {
+        return aHasSeq ? -1 : 1;
+    }
+
+    if (
+        typeof a.server_seq === "number" &&
+        typeof b.server_seq === "number" &&
+        a.server_seq !== b.server_seq
+    ) {
+        return a.server_seq - b.server_seq;
+    }
+
+    return a.id.localeCompare(b.id);
+}
+
 async function getMessageByWhere(
     clause: string,
     args: Array<string | number | null>,
@@ -81,13 +103,12 @@ export async function listMessagesByConversation(conversationId: string) {
          FROM messages
          WHERE conversation_id = ?
          ORDER BY
-            CASE WHEN server_seq IS NULL THEN 1 ELSE 0 END ASC,
-            server_seq ASC,
-            created_at ASC`,
+            created_at ASC,
+            id ASC`,
         [conversationId],
     );
 
-    return rows.map(toMessageRow);
+    return rows.sort(compareRowsByTimeline).map(toMessageRow);
 }
 
 export async function insertMessage(input: MessageRow) {

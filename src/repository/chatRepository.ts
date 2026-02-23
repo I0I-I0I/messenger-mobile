@@ -31,9 +31,6 @@ export async function listChatsForUser(
                     ? conversation.userB
                     : conversation.userA;
             const otherUser = await getUserById(otherUserId);
-            if (!otherUser) {
-                return null;
-            }
 
             const lastMessageRow = await getLastMessageForConversation(
                 conversation.id,
@@ -42,9 +39,9 @@ export async function listChatsForUser(
             return {
                 chat: toChat(conversation),
                 otherUser: {
-                    id: otherUser.id,
-                    username: otherUser.username,
-                    displayName: otherUser.displayName,
+                    id: otherUser?.id ?? otherUserId,
+                    username: otherUser?.username ?? otherUserId,
+                    displayName: otherUser?.displayName ?? otherUserId,
                     avatar: otherUser?.avatar ?? null,
                     createdAt: otherUser?.createdAt ?? conversation.createdAt,
                 },
@@ -62,9 +59,7 @@ export async function listChatsForUser(
         }),
     );
 
-    return rows.filter(
-        (item): item is NonNullable<typeof item> => item !== null,
-    );
+    return rows;
 }
 
 export async function getChatById(chatId: string): Promise<Chat | null> {

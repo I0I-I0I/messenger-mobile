@@ -177,7 +177,16 @@ function createRuntimeClient(target: RealtimeRuntime) {
             void applyRealtimeEvent({
                 event,
                 currentUserId: userId,
-            });
+            })
+                .then((result) => {
+                    if (!result.requiresHydrationSync) {
+                        return;
+                    }
+                    void runGapRecoverySync(target);
+                })
+                .catch(() => {
+                    // Scheduler and reconnect sync paths keep data eventually consistent.
+                });
         },
         onClose: (info) => {
             if (info.byClient || target.stopRequested) {

@@ -1,9 +1,10 @@
 import { router, useFocusEffect } from "expo-router";
 import { FlatList, StyleSheet, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { SessionState, useSessionStore } from "@/src/state/useSessionStore";
+import { bindChatsLiveRefresh } from "@/src/sync/liveRefresh";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { ChatRow } from "@/src/ui/components/ChatRow";
 import { ChatListItem } from "@/src/domain/types";
@@ -28,6 +29,14 @@ export default function HomeScreen() {
             void load();
         }, [load]),
     );
+
+    useEffect(() => {
+        return bindChatsLiveRefresh({
+            reload: () => {
+                void load();
+            },
+        });
+    }, [load]);
 
     return (
         <SafeAreaView

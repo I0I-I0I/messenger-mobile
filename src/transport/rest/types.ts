@@ -45,8 +45,16 @@ export type ConversationDto = {
     user_b?: string;
     userB?: string;
     members?: Array<ApiUserDto | { id: string }>;
+    users?: Array<ApiUserDto | { id: string }>;
+    participants?: Array<ApiUserDto | { id: string }>;
+    participant_users?: Array<ApiUserDto | { id: string }>;
+    participantUsers?: Array<ApiUserDto | { id: string }>;
     member_ids?: string[];
     participant_ids?: string[];
+    other_user?: ApiUserDto | { id: string } | null;
+    otherUser?: ApiUserDto | { id: string } | null;
+    peer?: ApiUserDto | { id: string } | null;
+    counterpart?: ApiUserDto | { id: string } | null;
     other_user_id?: string;
     created_at?: string | number;
     createdAt?: string | number;
@@ -72,17 +80,39 @@ export type MessageDto = {
     content?: string;
     created_at?: string | number;
     createdAt?: string | number;
+    sender?: ApiUserDto | { id: string };
+    sender_user?: ApiUserDto | { id: string };
+    senderUser?: ApiUserDto | { id: string };
+    author?: ApiUserDto | { id: string };
+    from_user?: ApiUserDto | { id: string };
+    fromUser?: ApiUserDto | { id: string };
+    sender_username?: string;
+    senderUsername?: string;
+    sender_display_name?: string;
+    senderDisplayName?: string;
+    sender_name?: string;
+    senderName?: string;
+    sender_avatar_url?: string | null;
+    senderAvatarUrl?: string | null;
+    sender_avatar?: string | null;
+    senderAvatar?: string | null;
+    sender_created_at?: string | number;
+    senderCreatedAt?: string | number;
+    sender_updated_at?: string | number;
+    senderUpdatedAt?: string | number;
 };
 
 export type BootstrapDto = {
     me?: ApiUserDto;
     user?: ApiUserDto;
+    users?: ApiUserDto[];
     conversations?: ConversationDto[];
     recent_messages?: MessageDto[];
     recentMessages?: MessageDto[];
 };
 
 export type SyncChangesDto = {
+    users?: ApiUserDto[];
     conversations?: ConversationDto[];
     messages?: MessageDto[];
 };

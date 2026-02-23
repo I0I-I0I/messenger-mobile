@@ -9,7 +9,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     FlatList,
     Image,
+    Keyboard,
     KeyboardAvoidingView,
+    KeyboardEvent,
     Platform,
     Pressable,
     StyleSheet,
@@ -27,9 +29,10 @@ import SendIcon from "@/assets/icons/send.svg";
 import { Message } from "@/src/domain/types";
 import { ChatState, useChatStore } from "@/src/state/useChatStore";
 import { SessionState, useSessionStore } from "@/src/state/useSessionStore";
+import { bindChatLiveRefresh } from "@/src/sync/liveRefresh";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { MessageBubble } from "@/src/ui/components/MessageBubble";
-import { loadChats } from "@/src/usecases/chats";
+import { getChatUserDisplayName, loadChats } from "@/src/usecases/chats";
 import {
     loadMessages as loadMessagesUseCase,
     sendMessage,
@@ -65,19 +68,42 @@ export default function ChatScreen() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [chatUser, setChatUser] = useState<HeaderChatUser | null>(null);
     const [sending, setSending] = useState(false);
-    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [androidKeyboardOffset, setAndroidKeyboardOffset] = useState(0);
     const listRef = useRef<FlatList<Message>>(null);
 
     const resolvedChatId = useMemo(() => chatId ?? "", [chatId]);
 
     useEffect(() => {
-        const timeoutId = timerRef.current;
-        return () => {
-            if (timeoutId) {
-                clearTimeout(timeoutId);
-            }
+        if (Platform.OS !== "android") {
+            return;
+        }
+
+        const onKeyboardDidShow = (event: KeyboardEvent) => {
+            const keyboardHeight = event.endCoordinates.height;
+            const nextOffset = Math.max(keyboardHeight - insets.bottom + 52, 0);
+            setAndroidKeyboardOffset(nextOffset);
+            requestAnimationFrame(() =>
+                listRef.current?.scrollToEnd({ animated: true }),
+            );
         };
-    });
+        const onKeyboardDidHide = () => {
+            setAndroidKeyboardOffset(0);
+        };
+
+        const showSubscription = Keyboard.addListener(
+            "keyboardDidShow",
+            onKeyboardDidShow,
+        );
+        const hideSubscription = Keyboard.addListener(
+            "keyboardDidHide",
+            onKeyboardDidHide,
+        );
+
+        return () => {
+            showSubscription.remove();
+            hideSubscription.remove();
+        };
+    }, [insets.bottom]);
 
     const refreshMessages = useCallback(async () => {
         if (!resolvedChatId) {
@@ -85,7 +111,11 @@ export default function ChatScreen() {
             return;
         }
         const result = await loadMessagesUseCase(resolvedChatId);
-        setMessages(result);
+        const unique = new Map<string, Message>();
+        for (const message of result) {
+            unique.set(message.id, message);
+        }
+        setMessages(Array.from(unique.values()));
         requestAnimationFrame(() =>
             listRef.current?.scrollToEnd({ animated: true }),
         );
@@ -105,7 +135,7 @@ export default function ChatScreen() {
             return;
         }
         setChatUser({
-            displayName: currentChat.otherUser.displayName,
+            displayName: getChatUserDisplayName(currentChat.otherUser),
             avatar: currentChat.otherUser.avatar,
             lastSeenAt:
                 currentChat.lastMessage?.createdAt ??
@@ -119,6 +149,18 @@ export default function ChatScreen() {
             void loadHeaderUser();
         }, [loadHeaderUser, refreshMessages]),
     );
+
+    useEffect(() => {
+        return bindChatLiveRefresh({
+            conversationId: resolvedChatId,
+            refreshMessages: () => {
+                void refreshMessages();
+            },
+            refreshHeader: () => {
+                void loadHeaderUser();
+            },
+        });
+    }, [resolvedChatId, refreshMessages, loadHeaderUser]);
 
     useEffect(() => {
         navigation.setOptions({
@@ -179,26 +221,17 @@ export default function ChatScreen() {
         setSending(true);
 
         try {
-            const message = await sendMessage({
+            await sendMessage({
                 chatId: resolvedChatId,
                 senderId: userId,
                 content,
             });
 
             setDraft(resolvedChatId, "");
-            setMessages((prev) => [...prev, message]);
-
-            if (timerRef.current) {
-                clearTimeout(timerRef.current);
-            }
-
-            timerRef.current = setTimeout(() => {
-                void refreshMessages();
-            }, 200);
         } finally {
             setSending(false);
         }
-    }, [draft, refreshMessages, resolvedChatId, sending, setDraft, userId]);
+    }, [draft, resolvedChatId, sending, setDraft, userId]);
 
     const onInputKeyPress = useCallback(
         (event: TextInputKeyPressEvent) => {
@@ -212,9 +245,11 @@ export default function ChatScreen() {
     return (
         <KeyboardAvoidingView
             style={styles.container}
-            // On Android we rely on adjustResize (set in AndroidManifest) for stable input positioning.
             behavior={Platform.OS === "ios" ? "padding" : undefined}
-            keyboardVerticalOffset={Platform.OS === "ios" ? headerHeight : 0}
+            keyboardVerticalOffset={
+                Platform.OS === "ios" ? headerHeight - 24 : 0
+            }
+            enabled={Platform.OS === "ios"}
         >
             <SafeAreaView
                 style={[
@@ -259,6 +294,7 @@ export default function ChatScreen() {
                             borderColor: theme.colors.border,
                             backgroundColor: theme.colors.surface,
                             paddingBottom: Math.max(insets.bottom, 10),
+                            marginBottom: androidKeyboardOffset,
                         },
                     ]}
                 >

@@ -1,5 +1,6 @@
 import { getDb } from "@/src/db";
 import type { ConversationRow } from "@/src/db/types";
+import { emitConversationsChanged } from "@/src/sync/dataEvents";
 
 type DbConversationRow = {
     id: string;
@@ -99,6 +100,7 @@ export async function upsertConversation(input: {
         ],
     );
 
+    emitConversationsChanged(input.id);
     return getConversationById(input.id);
 }
 
@@ -187,6 +189,7 @@ export async function touchConversation(
         ],
     );
 
+    emitConversationsChanged(conversationId);
     return getConversationById(conversationId);
 }
 
@@ -226,5 +229,6 @@ export async function updateConversationFromServer(input: {
         ],
     );
 
+    emitConversationsChanged(input.conversationId);
     return getConversationById(input.conversationId);
 }

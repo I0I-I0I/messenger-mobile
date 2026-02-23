@@ -7,8 +7,13 @@ jest.mock("@/src/sync/syncScheduler", () => ({
     runSyncCycle: jest.fn(),
 }));
 
+jest.mock("@/src/sync/dataEvents", () => ({
+    emitSyncWarning: jest.fn(),
+}));
+
 import { loadMessages, sendMessage } from "@/src/usecases/messages";
 import * as messageRepository from "@/src/repository/messageRepository";
+import * as dataEvents from "@/src/sync/dataEvents";
 import * as syncScheduler from "@/src/sync/syncScheduler";
 
 const mockedEnqueueSendMessage = jest.mocked(
@@ -16,6 +21,7 @@ const mockedEnqueueSendMessage = jest.mocked(
 );
 const mockedListMessages = jest.mocked(messageRepository.listMessages);
 const mockedRunSyncCycle = jest.mocked(syncScheduler.runSyncCycle);
+const mockedEmitSyncWarning = jest.mocked(dataEvents.emitSyncWarning);
 
 describe("messages usecases", () => {
     beforeEach(() => {
@@ -50,6 +56,7 @@ describe("messages usecases", () => {
         await expect(sendMessage(input)).resolves.toEqual(localMessage);
         expect(mockedEnqueueSendMessage).toHaveBeenCalledWith(input);
         expect(mockedRunSyncCycle).toHaveBeenCalledWith("user-1");
+        expect(mockedEmitSyncWarning).not.toHaveBeenCalled();
     });
 
     it("sendMessage keeps local success when sync fails", async () => {
@@ -67,5 +74,9 @@ describe("messages usecases", () => {
             id: "local-msg-1",
         });
         expect(mockedEnqueueSendMessage).toHaveBeenCalledWith(input);
+        expect(mockedEmitSyncWarning).toHaveBeenCalledWith({
+            code: "OUTBOX_SYNC_FAILED",
+            message: "SYNC_ERROR",
+        });
     });
 });
