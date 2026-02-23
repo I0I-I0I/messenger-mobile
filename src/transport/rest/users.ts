@@ -5,13 +5,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null;
 }
 
-function pickUsersArray(value: unknown): ApiUserDto[] | null {
-    if (Array.isArray(value)) {
-        return value as ApiUserDto[];
+function isUserDtoArray(value: unknown): value is ApiUserDto[] {
+    return Array.isArray(value);
+}
+
+function pickUsersArray(value: unknown): ApiUserDto[] {
+    if (isUserDtoArray(value)) {
+        return value;
     }
 
     if (!isRecord(value)) {
-        return null;
+        return [];
     }
 
     const directCandidates = [
@@ -21,38 +25,42 @@ function pickUsersArray(value: unknown): ApiUserDto[] | null {
         value.rows,
     ];
     for (const candidate of directCandidates) {
-        if (Array.isArray(candidate)) {
-            return candidate as ApiUserDto[];
+        if (isUserDtoArray(candidate)) {
+            return candidate;
         }
     }
 
     if (isRecord(value.data)) {
-        const nested = pickUsersArray(value.data);
-        if (nested) {
-            return nested;
-        }
+        return pickUsersArray(value.data);
     }
 
-    return null;
+    return [];
+}
+
+function buildQueryString(input: {
+    query?: string;
+    limit?: number;
+}) {
+    const pairs: string[] = [];
+    if (typeof input.query === "string") {
+        pairs.push(`query=${encodeURIComponent(input.query)}`);
+    }
+    if (typeof input.limit === "number") {
+        pairs.push(`limit=${encodeURIComponent(String(input.limit))}`);
+    }
+
+    return pairs.join("&");
 }
 
 export async function searchUsersRequest(input: {
     query?: string;
     limit?: number;
 }) {
-    const params = new URLSearchParams();
-    if (typeof input.query === "string") {
-        params.set("query", input.query);
-    }
-    if (typeof input.limit === "number") {
-        params.set("limit", String(input.limit));
-    }
-
-    const query = params.toString();
+    const query = buildQueryString(input);
     const payload = await restRequest<unknown>(
         `/v1/users/search${query ? `?${query}` : ""}`,
     );
-    return pickUsersArray(payload) ?? [];
+    return pickUsersArray(payload);
 }
 
 export async function batchUsersRequest(input: {
@@ -67,5 +75,5 @@ export async function batchUsersRequest(input: {
         body: JSON.stringify({ ids: input.ids }),
     });
 
-    return pickUsersArray(payload) ?? [];
+    return pickUsersArray(payload);
 }

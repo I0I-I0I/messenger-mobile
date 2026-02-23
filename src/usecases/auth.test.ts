@@ -8,6 +8,14 @@ jest.mock("@/src/sync/bootstrap", () => ({
     runBootstrapSync: jest.fn(),
 }));
 
+jest.mock("@/src/db", () => ({
+    clearDb: jest.fn(),
+}));
+
+jest.mock("@/src/db/sqliteErrors", () => ({
+    isUsersUsernameUniqueConstraintError: jest.fn(),
+}));
+
 jest.mock("@/src/transport/rest/auth", () => ({
     loginRequest: jest.fn(),
     logoutRequest: jest.fn(),
@@ -28,6 +36,8 @@ import * as sessionRepository from "@/src/repository/sessionRepository";
 import * as bootstrapSync from "@/src/sync/bootstrap";
 import * as authTransport from "@/src/transport/rest/auth";
 import * as validators from "@/src/domain/validators";
+import * as sqliteErrors from "@/src/db/sqliteErrors";
+import * as db from "@/src/db";
 
 const mockedClearSession = jest.mocked(sessionRepository.clearSession);
 const mockedGetSession = jest.mocked(sessionRepository.getSession);
@@ -39,10 +49,15 @@ const mockedRegisterRequest = jest.mocked(authTransport.registerRequest);
 const mockedValidateRegistrationInput = jest.mocked(
     validators.validateRegistrationInput,
 );
+const mockedIsUsersUsernameUniqueConstraintError = jest.mocked(
+    sqliteErrors.isUsersUsernameUniqueConstraintError,
+);
+const mockedClearDb = jest.mocked(db.clearDb);
 
 describe("auth usecases", () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        mockedIsUsersUsernameUniqueConstraintError.mockReturnValue(false);
     });
 
     it("hydrateSession returns current session", async () => {
@@ -65,6 +80,41 @@ describe("auth usecases", () => {
         ).resolves.toEqual({ userId: "1" });
         expect(mockedSetSession).toHaveBeenCalledWith("1");
         expect(mockedRunBootstrapSync).toHaveBeenCalledWith("1");
+    });
+
+    it("loginWithPassword resets local db and retries bootstrap on username conflict", async () => {
+        mockedLoginRequest.mockResolvedValue({
+            id: "1",
+            username: "alice",
+        } as any);
+        mockedRunBootstrapSync
+            .mockRejectedValueOnce(new Error("UNIQUE constraint failed"))
+            .mockResolvedValueOnce(undefined);
+        mockedIsUsersUsernameUniqueConstraintError.mockReturnValue(true);
+        mockedClearDb.mockResolvedValue(undefined);
+
+        await expect(
+            loginWithPassword({ username: "alice", password: "pass123" }),
+        ).resolves.toEqual({ userId: "1" });
+        expect(mockedClearDb).toHaveBeenCalledTimes(1);
+        expect(mockedRunBootstrapSync).toHaveBeenCalledTimes(2);
+        expect(mockedRunBootstrapSync).toHaveBeenNthCalledWith(1, "1");
+        expect(mockedRunBootstrapSync).toHaveBeenNthCalledWith(2, "1");
+    });
+
+    it("loginWithPassword does not reset local db for non-conflict bootstrap errors", async () => {
+        mockedLoginRequest.mockResolvedValue({
+            id: "1",
+            username: "alice",
+        } as any);
+        mockedRunBootstrapSync.mockRejectedValueOnce(new Error("NETWORK_ERROR"));
+        mockedIsUsersUsernameUniqueConstraintError.mockReturnValue(false);
+
+        await expect(
+            loginWithPassword({ username: "alice", password: "pass123" }),
+        ).resolves.toEqual({ userId: "1" });
+        expect(mockedClearDb).not.toHaveBeenCalled();
+        expect(mockedRunBootstrapSync).toHaveBeenCalledTimes(1);
     });
 
     it("loginWithPassword maps transport errors to code", async () => {
@@ -113,6 +163,32 @@ describe("auth usecases", () => {
         });
         expect(mockedSetSession).toHaveBeenCalledWith("42");
         expect(mockedRunBootstrapSync).toHaveBeenCalledWith("42");
+    });
+
+    it("registerWithPassword resets local db and retries bootstrap on username conflict", async () => {
+        mockedValidateRegistrationInput.mockReturnValue(null);
+        mockedRegisterRequest.mockResolvedValue({
+            id: "42",
+            username: "alice",
+            display_name: "Alice",
+        } as any);
+        mockedRunBootstrapSync
+            .mockRejectedValueOnce(new Error("UNIQUE constraint failed"))
+            .mockResolvedValueOnce(undefined);
+        mockedIsUsersUsernameUniqueConstraintError.mockReturnValue(true);
+        mockedClearDb.mockResolvedValue(undefined);
+
+        await expect(
+            registerWithPassword({
+                username: "alice",
+                displayName: "Alice",
+                password: "pass123",
+            }),
+        ).resolves.toEqual({ userId: "42" });
+        expect(mockedClearDb).toHaveBeenCalledTimes(1);
+        expect(mockedRunBootstrapSync).toHaveBeenCalledTimes(2);
+        expect(mockedRunBootstrapSync).toHaveBeenNthCalledWith(1, "42");
+        expect(mockedRunBootstrapSync).toHaveBeenNthCalledWith(2, "42");
     });
 
     it("logoutCurrentSession clears session even if backend logout fails", async () => {

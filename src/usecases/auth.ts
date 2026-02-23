@@ -1,3 +1,5 @@
+import { clearDb } from "@/src/db";
+import { isUsersUsernameUniqueConstraintError } from "@/src/db/sqliteErrors";
 import {
     clearSession,
     getSession,
@@ -22,6 +24,29 @@ function toCode(error: unknown) {
     return "UNKNOWN";
 }
 
+async function runBootstrapSyncWithRecovery(userId: string) {
+    try {
+        await runBootstrapSync(userId);
+        return;
+    } catch (error) {
+        if (!isUsersUsernameUniqueConstraintError(error)) {
+            return;
+        }
+    }
+
+    try {
+        await clearDb();
+    } catch {
+        return;
+    }
+
+    try {
+        await runBootstrapSync(userId);
+    } catch {
+        // Keep auth success even if retry fails after local reset.
+    }
+}
+
 export async function hydrateSession() {
     return getSession();
 }
@@ -36,11 +61,7 @@ export async function loginWithPassword(input: {
             password: input.password,
         });
         await setSession(user.id);
-        try {
-            await runBootstrapSync(user.id);
-        } catch {
-            // Keep auth success even if initial sync fails.
-        }
+        await runBootstrapSyncWithRecovery(user.id);
         return { userId: user.id };
     } catch (error) {
         throw new Error(toCode(error));
@@ -68,11 +89,7 @@ export async function registerWithPassword(input: {
             password: input.password,
         });
         await setSession(user.id);
-        try {
-            await runBootstrapSync(user.id);
-        } catch {
-            // Keep auth success even if initial sync fails.
-        }
+        await runBootstrapSyncWithRecovery(user.id);
         return { userId: user.id };
     } catch (error) {
         throw new Error(toCode(error));

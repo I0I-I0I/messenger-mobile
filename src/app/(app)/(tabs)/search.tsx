@@ -17,13 +17,14 @@ export default function FriendsScreen() {
     const { theme } = useTheme();
     const [query, setQuery] = useState("");
     const [debouncedQuery] = useDebounce(query, 500);
+    const trimmedQuery = debouncedQuery.trim();
     const [users, setUsers] = useState<User[]>([]);
 
     useEffect(() => {
         let active = true;
 
         async function load() {
-            if (debouncedQuery === "") {
+            if (trimmedQuery === "") {
                 if (active) {
                     setUsers([]);
                 }
@@ -37,7 +38,7 @@ export default function FriendsScreen() {
             }
             try {
                 const result = await searchUsersByQuery({
-                    query: debouncedQuery,
+                    query: trimmedQuery,
                     limit: 10,
                 });
                 if (active) {
@@ -55,7 +56,7 @@ export default function FriendsScreen() {
         return () => {
             active = false;
         };
-    }, [debouncedQuery, userId]);
+    }, [debouncedQuery, trimmedQuery, userId]);
 
     async function openChat(otherUserId: string) {
         if (!userId) {
@@ -103,14 +104,16 @@ export default function FriendsScreen() {
                     );
                 }}
                 ListEmptyComponent={
-                    <Text
-                        style={[
-                            styles.empty,
-                            { color: theme.colors.mutedText },
-                        ]}
-                    >
-                        Никого не найдено
-                    </Text>
+                    trimmedQuery ? (
+                        <Text
+                            style={[
+                                styles.empty,
+                                { color: theme.colors.mutedText },
+                            ]}
+                        >
+                            Никого не найдено
+                        </Text>
+                    ) : null
                 }
             />
         </SafeAreaView>

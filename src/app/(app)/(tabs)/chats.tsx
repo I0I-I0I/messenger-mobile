@@ -20,8 +20,12 @@ export default function HomeScreen() {
             setItems([]);
             return;
         }
-        const result = await loadChats(userId);
-        setItems(result);
+        try {
+            const result = await loadChats(userId);
+            setItems(result);
+        } catch {
+            // Keep currently rendered list to avoid unhandled async crashes.
+        }
     }, [userId]);
 
     useFocusEffect(

@@ -10,7 +10,11 @@ import {
     normalizeUser,
     type NormalizedConversation,
 } from "@/src/sync/normalizers";
-import type { ApiUserDto, ConversationDto, MessageDto } from "@/src/transport/rest/types";
+import type {
+    ApiUserDto,
+    ConversationDto,
+    MessageDto,
+} from "@/src/transport/rest/types";
 
 function appendUserCandidate(output: unknown[], value: unknown) {
     if (Array.isArray(value)) {

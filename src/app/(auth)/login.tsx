@@ -93,7 +93,8 @@ export default function LoginScreen() {
     async function onLogin() {
         const nextFieldErrors = validateLoginInput({ username, password });
         const hasErrors =
-            Boolean(nextFieldErrors.username) || Boolean(nextFieldErrors.password);
+            Boolean(nextFieldErrors.username) ||
+            Boolean(nextFieldErrors.password);
         setTouched({ username: true, password: true });
         setFieldErrors(nextFieldErrors);
         setFormError(null);

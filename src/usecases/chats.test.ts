@@ -24,6 +24,14 @@ jest.mock("@/src/transport/rest/users", () => ({
     searchUsersRequest: jest.fn(),
 }));
 
+jest.mock("@/src/sync/dataEvents", () => ({
+    emitSyncWarning: jest.fn(),
+}));
+
+jest.mock("@/src/db/sqliteErrors", () => ({
+    isUsersUsernameUniqueConstraintError: jest.fn(),
+}));
+
 import {
     getChatUserDisplayName,
     loadChatById,
@@ -37,6 +45,8 @@ import * as syncApply from "@/src/sync/applyServerData";
 import * as conversationsTransport from "@/src/transport/rest/conversations";
 import * as usersTransport from "@/src/transport/rest/users";
 import { ApiError } from "@/src/transport/rest/client";
+import * as dataEvents from "@/src/sync/dataEvents";
+import * as sqliteErrors from "@/src/db/sqliteErrors";
 
 const mockedFindOrCreateDirectChat = jest.mocked(
     chatRepository.findOrCreateDirectChat,
@@ -57,10 +67,15 @@ const mockedListConversationsRequest = jest.mocked(
 );
 const mockedBatchUsersRequest = jest.mocked(usersTransport.batchUsersRequest);
 const mockedSearchUsersRequest = jest.mocked(usersTransport.searchUsersRequest);
+const mockedEmitSyncWarning = jest.mocked(dataEvents.emitSyncWarning);
+const mockedIsUsersUsernameUniqueConstraintError = jest.mocked(
+    sqliteErrors.isUsersUsernameUniqueConstraintError,
+);
 
 describe("chats usecases", () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        mockedIsUsersUsernameUniqueConstraintError.mockReturnValue(false);
     });
 
     it("loadChats delegates to listChatsForUser", async () => {
@@ -131,6 +146,34 @@ describe("chats usecases", () => {
         );
     });
 
+    it("loadChats returns initial list and emits warning on username conflict during fallback hydration", async () => {
+        const placeholder = {
+            chat: { id: "chat-1" },
+            otherUser: {
+                id: "u2",
+                username: "u2",
+                displayName: "u2",
+                avatar: null,
+                createdAt: 1,
+            },
+            lastMessage: null,
+        } as any;
+
+        mockedListChatsForUser
+            .mockResolvedValueOnce([placeholder])
+            .mockRejectedValueOnce(new Error("UNIQUE constraint failed"));
+        mockedListConversationsRequest.mockResolvedValue([]);
+        mockedApplyConversations.mockResolvedValue(undefined);
+        mockedIsUsersUsernameUniqueConstraintError.mockReturnValue(true);
+
+        await expect(loadChats("user-1")).resolves.toEqual([placeholder]);
+        expect(mockedEmitSyncWarning).toHaveBeenCalledWith(
+            expect.objectContaining({
+                code: "LOCAL_USER_CONFLICT",
+            }),
+        );
+    });
+
     it("loadChatById delegates to getChatById", async () => {
         const row = { id: "chat-1" } as any;
         mockedGetChatById.mockResolvedValue(row);
@@ -187,5 +230,27 @@ describe("chats usecases", () => {
             currentUserId: "1",
             otherUserId: "2",
         });
+    });
+
+    it("openOrCreateDirectChat keeps api result on user conflict while emitting warning", async () => {
+        mockedCreateDirectConversationRequest.mockResolvedValue({
+            id: "srv-chat-1",
+            member_ids: ["1", "2"],
+        } as any);
+        mockedUpsertConversation.mockResolvedValue(null as any);
+        mockedApplyUsers.mockRejectedValue(new Error("UNIQUE"));
+        mockedIsUsersUsernameUniqueConstraintError.mockReturnValue(true);
+        mockedGetChatById.mockResolvedValue({
+            id: "srv-chat-1",
+        } as any);
+
+        await expect(
+            openOrCreateDirectChat({ currentUserId: "1", otherUserId: "2" }),
+        ).resolves.toEqual({ id: "srv-chat-1" });
+        expect(mockedEmitSyncWarning).toHaveBeenCalledWith(
+            expect.objectContaining({
+                code: "LOCAL_USER_CONFLICT",
+            }),
+        );
     });
 });

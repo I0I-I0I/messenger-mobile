@@ -2,22 +2,16 @@ jest.mock("@/src/repository/userRepository", () => ({
     searchUsers: jest.fn(),
 }));
 
-jest.mock("@/src/sync/applyServerData", () => ({
-    applyUsers: jest.fn(),
-}));
-
 jest.mock("@/src/transport/rest/users", () => ({
     searchUsersRequest: jest.fn(),
 }));
 
 import { searchUsersByQuery } from "@/src/usecases/users";
 import * as userRepository from "@/src/repository/userRepository";
-import * as syncApply from "@/src/sync/applyServerData";
 import * as usersTransport from "@/src/transport/rest/users";
 import { ApiError } from "@/src/transport/rest/client";
 
 const mockedSearchUsersLocal = jest.mocked(userRepository.searchUsers);
-const mockedApplyUsers = jest.mocked(syncApply.applyUsers);
 const mockedSearchUsersRequest = jest.mocked(usersTransport.searchUsersRequest);
 
 describe("users usecases", () => {
@@ -25,7 +19,7 @@ describe("users usecases", () => {
         jest.clearAllMocks();
     });
 
-    it("uses remote search and caches users when query is provided", async () => {
+    it("uses remote search when query is provided", async () => {
         mockedSearchUsersRequest.mockResolvedValue([
             {
                 id: "1",
@@ -36,14 +30,12 @@ describe("users usecases", () => {
                 updated_at: 1_700_000_000_000,
             },
         ] as any);
-        mockedApplyUsers.mockResolvedValue(undefined);
 
         const result = await searchUsersByQuery({ query: "alice" });
         expect(mockedSearchUsersRequest).toHaveBeenCalledWith({
             query: "alice",
             limit: 10,
         });
-        expect(mockedApplyUsers).toHaveBeenCalledTimes(1);
         expect(result).toEqual([
             {
                 id: "1",
@@ -55,15 +47,9 @@ describe("users usecases", () => {
         ]);
     });
 
-    it("uses remote search when query is empty", async () => {
-        mockedSearchUsersRequest.mockResolvedValue([]);
-        mockedApplyUsers.mockResolvedValue(undefined);
-
+    it("returns empty result without remote search when query is empty", async () => {
         await expect(searchUsersByQuery({})).resolves.toEqual([]);
-        expect(mockedSearchUsersRequest).toHaveBeenCalledWith({
-            query: undefined,
-            limit: 10,
-        });
+        expect(mockedSearchUsersRequest).not.toHaveBeenCalled();
     });
 
     it("falls back to local search when API is unavailable", async () => {
@@ -79,5 +65,36 @@ describe("users usecases", () => {
         const result = await searchUsersByQuery({ query: "alice", limit: 25 });
         expect(mockedSearchUsersLocal).toHaveBeenCalledWith("alice", 25);
         expect(result).toEqual([{ id: "2" }]);
+    });
+
+    it("falls back to local search for unexpected runtime errors", async () => {
+        mockedSearchUsersRequest.mockRejectedValue(
+            new TypeError("Cannot read properties of undefined"),
+        );
+        mockedSearchUsersLocal.mockResolvedValue([{ id: "fallback" }] as any);
+
+        const result = await searchUsersByQuery({ query: "alice" });
+        expect(mockedSearchUsersLocal).toHaveBeenCalledWith("alice", 10);
+        expect(result).toEqual([{ id: "fallback" }]);
+    });
+
+    it("skips malformed remote users without crashing", async () => {
+        mockedSearchUsersRequest.mockResolvedValue([
+            null,
+            42,
+            { id: "ok", username: "okay", display_name: "Okay" },
+            { username: "missing-id" },
+        ] as any);
+
+        const result = await searchUsersByQuery({ query: "ok" });
+        expect(result).toEqual([
+            {
+                id: "ok",
+                username: "okay",
+                displayName: "Okay",
+                avatar: null,
+                createdAt: expect.any(Number),
+            },
+        ]);
     });
 });

@@ -1,4 +1,5 @@
 import { upsertConversation } from "@/src/db/queries/conversations";
+import { isUsersUsernameUniqueConstraintError } from "@/src/db/sqliteErrors";
 import type { ChatListItem } from "@/src/domain/types";
 import { findOrCreateDirectChat, getChatById, listChatsForUser } from "@/src/repository/chatRepository";
 import {
@@ -6,6 +7,7 @@ import {
     applyUsers,
     extractConversationUsers,
 } from "@/src/sync/applyServerData";
+import { emitSyncWarning } from "@/src/sync/dataEvents";
 import { normalizeConversation } from "@/src/sync/normalizers";
 import { ApiError } from "@/src/transport/rest/client";
 import {
@@ -16,6 +18,23 @@ import { batchUsersRequest, searchUsersRequest } from "@/src/transport/rest/user
 
 const USER_HYDRATION_SEARCH_LIMIT = 20;
 export const UNRESOLVED_PROFILE_LABEL = "Loading profile…";
+const USER_SYNC_CONFLICT_WARNING = {
+    code: "LOCAL_USER_CONFLICT",
+    message: "Local profile cache conflicted with server data.",
+};
+
+function shouldSwallowHydrationError(error: unknown) {
+    if (error instanceof ApiError) {
+        return true;
+    }
+
+    if (isUsersUsernameUniqueConstraintError(error)) {
+        emitSyncWarning(USER_SYNC_CONFLICT_WARNING);
+        return true;
+    }
+
+    return false;
+}
 
 export function isUnresolvedChatUser(
     user: ChatListItem["otherUser"] | null | undefined,
@@ -104,9 +123,10 @@ async function hydrateUsersByIdLookup(userIds: string[]) {
             );
         }
     } catch (error) {
-        if (!(error instanceof ApiError)) {
+        if (!shouldSwallowHydrationError(error)) {
             throw error;
         }
+        return;
     }
 
     for (const userId of unresolvedUserIds) {
@@ -129,9 +149,10 @@ async function hydrateUsersByIdLookup(userIds: string[]) {
                 await applyUsers([exact]);
             }
         } catch (error) {
-            if (!(error instanceof ApiError)) {
+            if (!shouldSwallowHydrationError(error)) {
                 throw error;
             }
+            return;
         }
     }
 }
@@ -152,7 +173,7 @@ async function hydrateFallbackChatUsers(
             currentUserId,
         });
     } catch (error) {
-        if (!(error instanceof ApiError)) {
+        if (!shouldSwallowHydrationError(error)) {
             throw error;
         }
     }
@@ -168,8 +189,15 @@ export async function loadChats(userId: string) {
         return chats;
     }
 
-    await hydrateFallbackChatUsers(userId, chats);
-    return listChatsForUser(userId);
+    try {
+        await hydrateFallbackChatUsers(userId, chats);
+        return await listChatsForUser(userId);
+    } catch (error) {
+        if (!shouldSwallowHydrationError(error)) {
+            throw error;
+        }
+        return chats;
+    }
 }
 
 export async function loadChatById(chatId: string) {
@@ -206,7 +234,13 @@ export async function openOrCreateDirectChat(input: {
             unreadCount: normalized.unreadCount,
         });
 
-        await applyUsers(extractConversationUsers(response));
+        try {
+            await applyUsers(extractConversationUsers(response));
+        } catch (error) {
+            if (!shouldSwallowHydrationError(error)) {
+                throw error;
+            }
+        }
 
         const chat = await getChatById(normalized.id);
         if (chat) {
