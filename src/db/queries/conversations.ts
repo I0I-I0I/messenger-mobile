@@ -153,6 +153,19 @@ export async function listConversationsForUser(userId: string) {
     return rows.map(toConversationRow);
 }
 
+export async function listConversationIdsForUser(userId: string) {
+    const db = await getDb();
+    const rows = await db.getAllAsync<{ id: string }>(
+        `SELECT id
+         FROM conversations
+         WHERE user_a = ? OR user_b = ?
+         ORDER BY last_message_at DESC`,
+        [userId, userId],
+    );
+
+    return rows.map((row) => row.id);
+}
+
 export async function touchConversation(
     conversationId: string,
     input: { lastMessagePreview: string; lastMessageAt: number },
@@ -175,4 +188,43 @@ export async function touchConversation(
     );
 
     return getConversationById(conversationId);
+}
+
+export async function updateConversationFromServer(input: {
+    conversationId: string;
+    serverUpdatedAt: number;
+    lastMessagePreview: string;
+    lastMessageAt: number;
+}) {
+    const existing = await getConversationById(input.conversationId);
+    if (!existing) {
+        return null;
+    }
+
+    if (
+        typeof existing.serverUpdatedAt === "number" &&
+        existing.serverUpdatedAt > input.serverUpdatedAt
+    ) {
+        return existing;
+    }
+
+    const db = await getDb();
+    await db.runAsync(
+        `UPDATE conversations
+         SET
+            last_message_preview = ?,
+            last_message_at = ?,
+            updated_at = ?,
+            server_updated_at = ?
+         WHERE id = ?`,
+        [
+            input.lastMessagePreview,
+            input.lastMessageAt,
+            input.serverUpdatedAt,
+            input.serverUpdatedAt,
+            input.conversationId,
+        ],
+    );
+
+    return getConversationById(input.conversationId);
 }

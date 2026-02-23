@@ -7,7 +7,7 @@ import {
     MOCK_USERS,
 } from "@/src/service/mockData";
 
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 
 const DEMO_PASSWORD_HASH_FOR_USER_1 =
     "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92";
@@ -57,8 +57,9 @@ const CREATE_SCHEMA_SQL = `
     CREATE INDEX IF NOT EXISTS idx_messages_conversation_created_at
         ON messages (conversation_id, created_at DESC);
 
-    CREATE INDEX IF NOT EXISTS idx_messages_conversation_server_seq
-        ON messages (conversation_id, server_seq);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_conversation_server_seq_unique
+        ON messages (conversation_id, server_seq)
+        WHERE server_seq IS NOT NULL;
 
     CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_server_id
         ON messages (server_id) WHERE server_id IS NOT NULL;
@@ -189,6 +190,25 @@ async function migrateToV3(db: SQLiteDatabase) {
     `);
 }
 
+async function migrateToV4(db: SQLiteDatabase) {
+    await db.execAsync(`
+        DELETE FROM messages
+        WHERE rowid NOT IN (
+            SELECT MIN(rowid)
+            FROM messages
+            WHERE server_seq IS NOT NULL
+            GROUP BY conversation_id, server_seq
+        )
+        AND server_seq IS NOT NULL;
+
+        DROP INDEX IF EXISTS idx_messages_conversation_server_seq;
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_conversation_server_seq_unique
+            ON messages (conversation_id, server_seq)
+            WHERE server_seq IS NOT NULL;
+    `);
+}
+
 export async function applyMigrations(db: SQLiteDatabase) {
     const versionRow = await db.getFirstAsync<{ user_version: number }>(
         "PRAGMA user_version",
@@ -211,6 +231,11 @@ export async function applyMigrations(db: SQLiteDatabase) {
 
     if (currentVersion < 3) {
         await migrateToV3(db);
+        migrated = true;
+    }
+
+    if (currentVersion < 4) {
+        await migrateToV4(db);
         migrated = true;
     }
 

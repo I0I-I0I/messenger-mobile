@@ -61,7 +61,7 @@ export default function LoginScreen() {
     return (
         <KeyboardAvoidingView
             style={styles.keyboardAvoiding}
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
             <SafeAreaView
                 style={[

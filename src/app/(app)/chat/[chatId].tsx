@@ -212,10 +212,9 @@ export default function ChatScreen() {
     return (
         <KeyboardAvoidingView
             style={styles.container}
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            keyboardVerticalOffset={
-                Platform.OS === "ios" ? headerHeight - 20 : 0
-            }
+            // On Android we rely on adjustResize (set in AndroidManifest) for stable input positioning.
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            keyboardVerticalOffset={Platform.OS === "ios" ? headerHeight : 0}
         >
             <SafeAreaView
                 style={[

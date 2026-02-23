@@ -4,6 +4,7 @@ import { touchConversation } from "@/src/db/queries/conversations";
 import { enqueueOutbox } from "@/src/db/queries/outbox";
 import {
     getMessageByClientMessageId,
+    getMessageByConversationAndServerSeq,
     getMessageById,
     getMessageByServerId,
     insertMessage,
@@ -89,10 +90,12 @@ export async function markMessageAsFailed(messageId: string) {
 }
 
 async function resolveExistingMessage(input: {
+    conversationId: string;
     localMessageId?: string;
     senderId: string;
     clientMessageId?: string;
     serverId: string;
+    serverSeq?: number;
 }) {
     if (input.localMessageId) {
         const byLocal = await getMessageById(input.localMessageId);
@@ -104,6 +107,16 @@ async function resolveExistingMessage(input: {
     const byServer = await getMessageByServerId(input.serverId);
     if (byServer) {
         return byServer;
+    }
+
+    if (typeof input.serverSeq === "number") {
+        const bySeq = await getMessageByConversationAndServerSeq(
+            input.conversationId,
+            input.serverSeq,
+        );
+        if (bySeq) {
+            return bySeq;
+        }
     }
 
     if (input.clientMessageId) {
@@ -130,10 +143,12 @@ export async function upsertServerMessage(input: {
     localMessageId?: string;
 }) {
     const existing = await resolveExistingMessage({
+        conversationId: input.conversationId,
         localMessageId: input.localMessageId,
         senderId: input.senderId,
         clientMessageId: input.clientMessageId,
         serverId: input.serverId,
+        serverSeq: input.serverSeq,
     });
 
     if (existing) {
@@ -153,19 +168,39 @@ export async function upsertServerMessage(input: {
         }
     }
 
-    const inserted = await insertMessage({
-        id: createId("srv_msg"),
-        conversationId: input.conversationId,
-        senderId: input.senderId,
-        clientMessageId: input.clientMessageId,
-        serverId: input.serverId,
-        serverSeq: input.serverSeq,
-        serverCreatedAt: input.createdAt,
-        content: input.content,
-        createdAt: input.createdAt,
-        status: "sent",
-        serverEcho: 1,
-    });
+    let inserted = null;
+    try {
+        inserted = await insertMessage({
+            id: createId("srv_msg"),
+            conversationId: input.conversationId,
+            senderId: input.senderId,
+            clientMessageId: input.clientMessageId,
+            serverId: input.serverId,
+            serverSeq: input.serverSeq,
+            serverCreatedAt: input.createdAt,
+            content: input.content,
+            createdAt: input.createdAt,
+            status: "sent",
+            serverEcho: 1,
+        });
+    } catch {
+        const byServer = await getMessageByServerId(input.serverId);
+        if (byServer) {
+            inserted = byServer;
+        } else if (typeof input.serverSeq === "number") {
+            const bySeq = await getMessageByConversationAndServerSeq(
+                input.conversationId,
+                input.serverSeq,
+            );
+            if (bySeq) {
+                inserted = bySeq;
+            }
+        }
+
+        if (!inserted) {
+            throw new Error("SERVER_MESSAGE_UPSERT_FAILED");
+        }
+    }
 
     await touchConversation(input.conversationId, {
         lastMessagePreview: inserted.content,
@@ -173,4 +208,65 @@ export async function upsertServerMessage(input: {
     });
 
     return toMessage(inserted);
+}
+
+export async function reconcilePendingMessageFromRealtime(input: {
+    meId: string;
+    conversationId: string;
+    senderId: string;
+    clientMessageId?: string;
+    serverId: string;
+    serverSeq: number;
+    content: string;
+    createdAt: number;
+}) {
+    if (input.senderId !== input.meId || !input.clientMessageId) {
+        return null;
+    }
+
+    const localPending = await getMessageByClientMessageId(
+        input.meId,
+        input.clientMessageId,
+    );
+    if (!localPending) {
+        return null;
+    }
+
+    const updated = await updateMessageDelivery({
+        messageId: localPending.id,
+        serverId: input.serverId,
+        serverSeq: input.serverSeq,
+        serverCreatedAt: input.createdAt,
+        content: input.content,
+    });
+    if (!updated) {
+        return null;
+    }
+
+    await touchConversation(input.conversationId, {
+        lastMessagePreview: updated.content,
+        lastMessageAt: updated.createdAt,
+    });
+
+    return toMessage(updated);
+}
+
+export async function upsertRemoteMessageFromRealtime(input: {
+    conversationId: string;
+    senderId: string;
+    serverId: string;
+    clientMessageId?: string;
+    content: string;
+    createdAt: number;
+    serverSeq: number;
+}) {
+    return upsertServerMessage({
+        conversationId: input.conversationId,
+        senderId: input.senderId,
+        serverId: input.serverId,
+        clientMessageId: input.clientMessageId,
+        content: input.content,
+        createdAt: input.createdAt,
+        serverSeq: input.serverSeq,
+    });
 }

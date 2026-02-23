@@ -2,6 +2,7 @@ import type { Chat, ChatListItem } from "@/src/domain/types";
 import {
     findOrCreateDirectConversation,
     getConversationById,
+    listConversationIdsForUser,
     listConversationsForUser,
 } from "@/src/db/queries/conversations";
 import { getLastMessageForConversation } from "@/src/db/queries/messages";
@@ -80,4 +81,8 @@ export async function findOrCreateDirectChat(input: {
         input.otherUserId,
     );
     return toChat(conversation);
+}
+
+export async function getConversationIdsForRealtimeSubscribe(userId: string) {
+    return listConversationIdsForUser(userId);
 }

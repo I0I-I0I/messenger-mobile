@@ -6,6 +6,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { SessionState, useSessionStore } from "@/src/state/useSessionStore";
 import { startSyncScheduler, stopSyncScheduler } from "@/src/sync/syncScheduler";
+import { startRealtimeSession, stopRealtimeSession } from "@/src/usecases/realtime";
 import { ThemeProvider, useTheme } from "@/src/theme/ThemeProvider";
 
 function RootNavigator() {
@@ -23,15 +24,18 @@ function RootNavigator() {
     useEffect(() => {
         if (!hydrated || !userId) {
             stopSyncScheduler();
+            stopRealtimeSession();
             return;
         }
 
         const stop = startSyncScheduler({
             getCurrentUserId: () => useSessionStore.getState().userId,
         });
+        startRealtimeSession(() => useSessionStore.getState().userId);
 
         return () => {
             stop();
+            stopRealtimeSession();
         };
     }, [hydrated, userId]);
 

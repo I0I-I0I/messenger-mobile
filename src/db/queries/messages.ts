@@ -270,6 +270,16 @@ export async function getMessageByServerId(serverId: string) {
     return getMessageByWhere("server_id = ?", [serverId]);
 }
 
+export async function getMessageByConversationAndServerSeq(
+    conversationId: string,
+    serverSeq: number,
+) {
+    return getMessageByWhere(
+        "conversation_id = ? AND server_seq = ?",
+        [conversationId, serverSeq],
+    );
+}
+
 export async function getMessageByClientMessageId(
     senderId: string,
     clientMessageId: string,
