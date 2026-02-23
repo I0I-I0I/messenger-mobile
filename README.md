@@ -1,50 +1,125 @@
-# Welcome to your Expo app 👋
+# Messenger (Expo + React Native)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+`messenger` — мобильный клиент мессенджера на Expo/React Native с архитектурой **офлайн-первым**.
 
-## Get started
+## О проекте
 
-1. Install dependencies
+Приложение построено так, чтобы стабильно работать при нестабильной сети:
+- Интерфейс читает данные только из локальной SQLite.
+- Все отправки проходят через локальный outbox.
+- REST и `/v1/sync/changes` остаются основой корректности данных.
+- WebSocket используется для ускорения доставки событий, но не как единственный механизм синхронизации.
 
-   ```bash
-   npm install
-   ```
+В текущем состоянии репозиторий содержит рабочий клиент и архитектурные документы для backend и realtime-интеграции.
 
-2. Start the app
+## Технологии
 
-   ```bash
-   npx expo start
-   ```
+- Expo + React Native + `expo-router`
+- TypeScript
+- SQLite (`expo-sqlite`)
+- Zustand
+- AsyncStorage
+- Jest
 
-In the output, you'll find options to open the app in a
+## Ключевые архитектурные правила
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- Источник данных для интерфейса: только SQLite.
+- Сетевой слой не записывает данные напрямую в React state как в источник истины.
+- Для долговечных операций основа — REST.
+- Для восстановления после разрывов обязателен catch-up через `/v1/sync/changes`.
+- Для сообщений соблюдаются:
+  - идемпотентность отправки по `(sender_id, client_message_id)`
+  - порядок внутри диалога по серверному `seq`
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Статус realtime/WebSocket
 
-## Get a fresh project
+Согласно архитектурным документам проекта:
+- На backend предусмотрен endpoint `WS /v1/ws`.
+- Базовые команды клиента: `subscribe`, `unsubscribe`, `ping`.
+- События v1: `message.created`, `conversation.updated`.
+- Доставка через WS выполняется без строгой гарантии; итоговая корректность обеспечивается через REST + sync.
+- Для надежной публикации серверных событий используется transactional outbox (`realtime_outbox_events`).
 
-When you're ready, run:
+## Структура репозитория
+
+- `src/app` — экраны и роутинг Expo Router.
+- `src/db` — инициализация SQLite, схема и миграции.
+- `src/db/queries` — SQL-запросы по таблицам.
+- `src/repository` — слой доступа к данным и согласованные операции в БД.
+- `src/usecases` — прикладные сценарии (auth/chats/messages/users/realtime).
+- `src/sync` — outbox, синхронизация и логика reconnect/realtime.
+- `src/transport/rest` — REST-клиенты и типы.
+- `src/transport/ws` — WS-клиент, протокол и тесты.
+- `src/state` — клиентские zustand-store.
+- `src/domain` — доменные типы, id, валидация.
+
+## Модель данных (клиент)
+
+Основные таблицы SQLite:
+- `users`
+- `conversations`
+- `messages`
+- `outbox`
+
+Для realtime и сверки сообщений используются поля и ограничения уровня БД:
+- `client_message_id`, `server_id`, `server_seq`, `server_created_at`
+- уникальность `server_id`
+- уникальность `(conversation_id, server_seq)`
+
+## Поток отправки сообщения
+
+1. Локально создается pending-сообщение.
+2. В outbox добавляется задача отправки.
+3. Outbox отправляет запрос в REST.
+4. При подтверждении или realtime-событии сообщение сверяется и переводится в итоговый статус.
+5. При проблемах сети применяются повторные попытки, после reconnect выполняется catch-up через sync.
+
+## Запуск проекта
+
+### Требования
+
+- Node.js 18+
+- pnpm
+- Expo CLI (через `pnpx` или `pnpm`)
+
+### Установка
 
 ```bash
-npm run reset-project
+pnpm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Разработка
 
-## Learn more
+```bash
+pnpm start
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+Дополнительно:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+pnpm android
+pnpm ios
+pnpm web
+```
 
-## Join the community
+## Тесты и качество
 
-Join our community of developers creating universal apps.
+```bash
+pnpm test
+pnpm test:watch
+pnpm test:ci
+pnpm lint
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Полезные документы в репозитории
+
+- `docs/backend_architecture.md` — архитектура backend (FastAPI + outbox + WS).
+- `docs/architecture_websockets.md` — общая архитектура realtime между backend и клиентом.
+- `docs/client_websocket_architecture.md` — реализация WS на клиенте.
+- `docs/additional_info.md` — краткая сводка по текущему состоянию проекта.
+- `docs/deploy.md` — заметки по развертыванию.
+
+## Примечания
+
+- Проект спроектирован с приоритетом устойчивости данных и повторяемой синхронизации.
+- Даже при недоступности WebSocket приложение должно оставаться работоспособным за счет outbox и REST sync.
