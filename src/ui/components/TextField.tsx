@@ -13,6 +13,7 @@ type TextFieldProps = {
     value: string;
     label?: string;
     onChangeText?: (text: string) => void;
+    onBlur?: () => void;
     placeholder?: string;
     secureTextEntry?: boolean;
     autoCapitalize?: "none" | "sentences" | "words" | "characters";
@@ -23,6 +24,7 @@ export function TextField({
     label = "",
     value,
     onChangeText,
+    onBlur,
     placeholder,
     secureTextEntry = false,
     autoCapitalize = "none",
@@ -40,6 +42,7 @@ export function TextField({
             <TextInput
                 value={value}
                 onChangeText={onChangeText}
+                onBlur={onBlur}
                 placeholder={placeholder}
                 placeholderTextColor={theme.colors.mutedText}
                 secureTextEntry={secureTextEntry}

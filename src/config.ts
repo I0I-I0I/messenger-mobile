@@ -20,8 +20,6 @@ function deriveWsUrl(baseApiUrl: string) {
 export default {
     API_URL: apiUrl,
     WS_URL: deriveWsUrl(apiUrl),
-    DEBUG: process.env.NODE_ENV !== "production",
-    SEED_LOCAL_DATA:
-        process.env.EXPO_PUBLIC_SEED_LOCAL_DATA === "1" ||
-        process.env.NODE_ENV === "test",
+    DEBUG: process.env.DEBUG === "1",
+    SEED_LOCAL_DATA: process.env.EXPO_PUBLIC_SEED_LOCAL_DATA === "1",
 };

@@ -77,7 +77,7 @@ describe("auth usecases", () => {
 
     it("registerWithPassword throws when validation fails", async () => {
         mockedValidateRegistrationInput.mockReturnValue(
-            "Пароль должен содержать не менее 6 символов.",
+            "Пароль должен содержать не менее 8 символов.",
         );
 
         await expect(
@@ -86,7 +86,7 @@ describe("auth usecases", () => {
                 displayName: "b",
                 password: "123",
             }),
-        ).rejects.toThrow("Пароль должен содержать не менее 6 символов.");
+        ).rejects.toThrow("Пароль должен содержать не менее 8 символов.");
         expect(mockedRegisterRequest).not.toHaveBeenCalled();
     });
 

@@ -9,13 +9,25 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import config from "@/src/config";
+import {
+    AUTH_VALIDATION_MESSAGES,
+    LoginFieldErrors,
+    validateLoginInput,
+    validatePassword,
+    validateUsername,
+} from "@/src/domain/authValidation";
+import { clearDb } from "@/src/db";
 import { SessionState, useSessionStore } from "@/src/state/useSessionStore";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { Button } from "@/src/ui/components/Button";
 import { TextField } from "@/src/ui/components/TextField";
 import { loginWithPassword } from "@/src/usecases/auth";
-import config from "@/src/config";
-import { clearDb } from "@/src/db";
+
+const INITIAL_TOUCHED_STATE = {
+    username: false,
+    password: false,
+};
 
 export default function LoginScreen() {
     const login = useSessionStore((state: SessionState) => state.login);
@@ -23,16 +35,77 @@ export default function LoginScreen() {
     const { theme } = useTheme();
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
-    const [error, setError] = useState<string | null>(null);
+    const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({});
+    const [formError, setFormError] = useState<string | null>(null);
+    const [touched, setTouched] = useState(INITIAL_TOUCHED_STATE);
     const [loading, setLoading] = useState(false);
 
+    const currentValidationErrors = validateLoginInput({ username, password });
+    const hasValidationErrors =
+        Boolean(currentValidationErrors.username) ||
+        Boolean(currentValidationErrors.password);
+    const isSubmitDisabled = loading || hasValidationErrors;
+
+    function onUsernameChange(value: string) {
+        setUsername(value);
+        setFormError(null);
+        if (!touched.username) {
+            return;
+        }
+        const nextError = validateUsername(value);
+        setFieldErrors((current) => ({
+            ...current,
+            username: nextError ?? undefined,
+        }));
+    }
+
+    function onPasswordChange(value: string) {
+        setPassword(value);
+        setFormError(null);
+        if (!touched.password) {
+            return;
+        }
+        const nextError = validatePassword(value);
+        setFieldErrors((current) => ({
+            ...current,
+            password: nextError ?? undefined,
+        }));
+    }
+
+    function onUsernameBlur() {
+        setTouched((current) => ({ ...current, username: true }));
+        const nextError = validateUsername(username);
+        setFieldErrors((current) => ({
+            ...current,
+            username: nextError ?? undefined,
+        }));
+    }
+
+    function onPasswordBlur() {
+        setTouched((current) => ({ ...current, password: true }));
+        const nextError = validatePassword(password);
+        setFieldErrors((current) => ({
+            ...current,
+            password: nextError ?? undefined,
+        }));
+    }
+
     async function onLogin() {
-        setError(null);
+        const nextFieldErrors = validateLoginInput({ username, password });
+        const hasErrors =
+            Boolean(nextFieldErrors.username) || Boolean(nextFieldErrors.password);
+        setTouched({ username: true, password: true });
+        setFieldErrors(nextFieldErrors);
+        setFormError(null);
+        if (hasErrors) {
+            return;
+        }
+
         setLoading(true);
 
         try {
             const session = await loginWithPassword({
-                username,
+                username: username.trim(),
                 password,
             });
             await login(session.userId);
@@ -45,14 +118,16 @@ export default function LoginScreen() {
                 message === "INVALID_LOGIN" ||
                 message === "USER_NOT_FOUND"
             ) {
-                setError("Неправильный пароль");
+                setFormError(AUTH_VALIDATION_MESSAGES.invalidCredentials);
                 return;
             }
             if (message === "NETWORK_ERROR") {
-                setError("Сервер недоступен");
+                setFormError(AUTH_VALIDATION_MESSAGES.networkUnavailable);
                 return;
             }
-            // setError(`Ошибка входа + ${config.DEBUG ? error : ""}`);
+            setFormError(
+                `Не получается войти. ${config.DEBUG ? message : ""}`.trim(),
+            );
         } finally {
             setLoading(false);
         }
@@ -80,33 +155,58 @@ export default function LoginScreen() {
                     <TextField
                         placeholder="Логин"
                         value={username}
-                        onChangeText={setUsername}
+                        onChangeText={onUsernameChange}
+                        onBlur={onUsernameBlur}
                         style={styles.input}
                         autoCapitalize="none"
                     />
-                    <TextField
-                        placeholder="Пароль"
-                        value={password}
-                        onChangeText={setPassword}
-                        style={styles.input}
-                        secureTextEntry
-                    />
-
-                    {error ? (
+                    {fieldErrors.username ? (
                         <Text
+                            selectable
                             style={[
-                                styles.error,
+                                styles.fieldError,
                                 { color: theme.colors.notification },
                             ]}
                         >
-                            {error}
+                            {fieldErrors.username}
+                        </Text>
+                    ) : null}
+                    <TextField
+                        placeholder="Пароль"
+                        value={password}
+                        onChangeText={onPasswordChange}
+                        onBlur={onPasswordBlur}
+                        style={styles.input}
+                        secureTextEntry
+                    />
+                    {fieldErrors.password ? (
+                        <Text
+                            selectable
+                            style={[
+                                styles.fieldError,
+                                { color: theme.colors.notification },
+                            ]}
+                        >
+                            {fieldErrors.password}
+                        </Text>
+                    ) : null}
+
+                    {formError ? (
+                        <Text
+                            selectable
+                            style={[
+                                styles.formError,
+                                { color: theme.colors.notification },
+                            ]}
+                        >
+                            {formError}
                         </Text>
                     ) : null}
 
                     <Button
                         title={loading ? "Вход..." : "Войти"}
                         onPress={onLogin}
-                        disabled={loading}
+                        disabled={isSubmitDisabled}
                     />
 
                     <Link
@@ -152,5 +252,8 @@ const styles = StyleSheet.create({
         textAlign: "center",
         marginTop: 8,
     },
-    error: {},
+    fieldError: {
+        marginTop: -6,
+    },
+    formError: {},
 });
