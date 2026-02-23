@@ -8,6 +8,8 @@ import {
     ViewStyle,
 } from "react-native";
 
+import AvatarIcon from "@/assets/icons/avatar.svg";
+
 import { User } from "@/src/domain/types";
 import { useTheme } from "@/src/theme/ThemeProvider";
 
@@ -33,7 +35,14 @@ export function UserRow({ user, onPress, style }: UserRowProps) {
                 pressed && styles.pressed,
             ]}
         >
-            <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
+            {user.avatar !== null && user.avatar.length !== 0 ? (
+                <Image
+                    source={{ uri: user.avatar }}
+                    style={styles.avatarImage}
+                />
+            ) : (
+                <AvatarIcon width={40} height={40} color={theme.colors.text} />
+            )}
             <View>
                 <Text style={[styles.name, { color: theme.colors.text }]}>
                     {user.displayName}

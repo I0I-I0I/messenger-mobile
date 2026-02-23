@@ -1,6 +1,26 @@
-import { createUser, getUserAuthByUsername } from "@/src/repository/userRepository";
-import { clearSession, getSession, setSession } from "@/src/repository/sessionRepository";
-import { hashPassword, validateRegistrationInput } from "@/src/domain/validators";
+import {
+    clearSession,
+    getSession,
+    setSession,
+} from "@/src/repository/sessionRepository";
+import { runBootstrapSync } from "@/src/sync/bootstrap";
+import { ApiError } from "@/src/transport/rest/client";
+import {
+    loginRequest,
+    logoutRequest,
+    registerRequest,
+} from "@/src/transport/rest/auth";
+import { validateRegistrationInput } from "@/src/domain/validators";
+
+function toCode(error: unknown) {
+    if (error instanceof ApiError) {
+        return error.code;
+    }
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
+    return "UNKNOWN";
+}
 
 export async function hydrateSession() {
     return getSession();
@@ -10,18 +30,21 @@ export async function loginWithPassword(input: {
     username: string;
     password: string;
 }) {
-    const auth = await getUserAuthByUsername(input.username);
-    if (!auth) {
-        throw new Error("USER_NOT_FOUND");
+    try {
+        const user = await loginRequest({
+            username: input.username,
+            password: input.password,
+        });
+        await setSession(user.id);
+        try {
+            await runBootstrapSync(user.id);
+        } catch {
+            // Keep auth success even if initial sync fails.
+        }
+        return { userId: user.id };
+    } catch (error) {
+        throw new Error(toCode(error));
     }
-
-    const hash = await hashPassword(input.password);
-    if (hash !== auth.passwordHash) {
-        throw new Error("INVALID_PASSWORD");
-    }
-
-    await setSession(auth.id);
-    return { userId: auth.id };
 }
 
 export async function registerWithPassword(input: {
@@ -38,26 +61,30 @@ export async function registerWithPassword(input: {
         throw new Error(validationError);
     }
 
-    const existing = await getUserAuthByUsername(input.username);
-    if (existing) {
-        throw new Error("USERNAME_TAKEN");
+    try {
+        const user = await registerRequest({
+            username: input.username,
+            display_name: input.displayName,
+            password: input.password,
+        });
+        await setSession(user.id);
+        try {
+            await runBootstrapSync(user.id);
+        } catch {
+            // Keep auth success even if initial sync fails.
+        }
+        return { userId: user.id };
+    } catch (error) {
+        throw new Error(toCode(error));
     }
-
-    const passwordHash = await hashPassword(input.password);
-    const created = await createUser({
-        username: input.username,
-        displayName: input.displayName,
-        passwordHash,
-    });
-
-    if (!created) {
-        throw new Error("REGISTER_FAILED");
-    }
-
-    await setSession(created.id);
-    return { userId: created.id };
 }
 
 export async function logoutCurrentSession() {
-    await clearSession();
+    try {
+        await logoutRequest();
+    } catch {
+        // Local logout must still succeed while offline.
+    } finally {
+        await clearSession();
+    }
 }

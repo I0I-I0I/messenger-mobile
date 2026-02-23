@@ -1,6 +1,7 @@
 import * as SQLite from "expo-sqlite";
 import type { SQLiteDatabase } from "expo-sqlite";
 
+import config from "@/src/config";
 import { applyMigrations, seedDatabaseIfEmpty } from "@/src/db/schema";
 
 const DATABASE_NAME = "messenger.db";
@@ -14,7 +15,9 @@ async function initialize() {
     await db.execAsync("PRAGMA journal_mode = WAL;");
 
     await applyMigrations(db);
-    await seedDatabaseIfEmpty(db);
+    if (config.SEED_LOCAL_DATA) {
+        await seedDatabaseIfEmpty(db);
+    }
 
     return db;
 }
@@ -43,5 +46,7 @@ export async function clearDb() {
         `);
     });
 
-    await seedDatabaseIfEmpty(db);
+    if (config.SEED_LOCAL_DATA) {
+        await seedDatabaseIfEmpty(db);
+    }
 }

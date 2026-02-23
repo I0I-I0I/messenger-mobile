@@ -1,9 +1,15 @@
 import type { Chat, ChatListItem } from "@/src/domain/types";
-import { findOrCreateDirectConversation, getConversationById, listConversationsForUser } from "@/src/db/queries/conversations";
+import {
+    findOrCreateDirectConversation,
+    getConversationById,
+    listConversationsForUser,
+} from "@/src/db/queries/conversations";
 import { getLastMessageForConversation } from "@/src/db/queries/messages";
 import { getUserById } from "@/src/db/queries/users";
 
-function toChat(input: NonNullable<Awaited<ReturnType<typeof getConversationById>>>): Chat {
+function toChat(
+    input: NonNullable<Awaited<ReturnType<typeof getConversationById>>>,
+): Chat {
     return {
         id: input.id,
         userA: input.userA,
@@ -12,26 +18,34 @@ function toChat(input: NonNullable<Awaited<ReturnType<typeof getConversationById
     };
 }
 
-export async function listChatsForUser(userId: string): Promise<ChatListItem[]> {
+export async function listChatsForUser(
+    userId: string,
+): Promise<ChatListItem[]> {
     const conversations = await listConversationsForUser(userId);
 
     const rows = await Promise.all(
         conversations.map(async (conversation) => {
-            const otherUserId = conversation.userA === userId ? conversation.userB : conversation.userA;
+            const otherUserId =
+                conversation.userA === userId
+                    ? conversation.userB
+                    : conversation.userA;
             const otherUser = await getUserById(otherUserId);
             if (!otherUser) {
                 return null;
             }
 
-            const lastMessageRow = await getLastMessageForConversation(conversation.id);
+            const lastMessageRow = await getLastMessageForConversation(
+                conversation.id,
+            );
+
             return {
                 chat: toChat(conversation),
                 otherUser: {
                     id: otherUser.id,
                     username: otherUser.username,
                     displayName: otherUser.displayName,
-                    avatar: otherUser.avatar,
-                    createdAt: otherUser.createdAt,
+                    avatar: otherUser?.avatar ?? null,
+                    createdAt: otherUser?.createdAt ?? conversation.createdAt,
                 },
                 lastMessage: lastMessageRow
                     ? {
@@ -47,7 +61,9 @@ export async function listChatsForUser(userId: string): Promise<ChatListItem[]> 
         }),
     );
 
-    return rows.filter((item): item is ChatListItem => item !== null);
+    return rows.filter(
+        (item): item is NonNullable<typeof item> => item !== null,
+    );
 }
 
 export async function getChatById(chatId: string): Promise<Chat | null> {
@@ -59,6 +75,9 @@ export async function findOrCreateDirectChat(input: {
     currentUserId: string;
     otherUserId: string;
 }): Promise<Chat> {
-    const conversation = await findOrCreateDirectConversation(input.currentUserId, input.otherUserId);
+    const conversation = await findOrCreateDirectConversation(
+        input.currentUserId,
+        input.otherUserId,
+    );
     return toChat(conversation);
 }

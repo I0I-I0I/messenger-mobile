@@ -1,5 +1,5 @@
 import { enqueueSendMessage, listMessages } from "@/src/repository/messageRepository";
-import { processOutboxOnce } from "@/src/sync/outboxProcessor";
+import { runSyncCycle } from "@/src/sync/syncScheduler";
 
 export async function loadMessages(chatId: string) {
     return listMessages(chatId);
@@ -11,6 +11,10 @@ export async function sendMessage(input: {
     content: string;
 }) {
     const local = await enqueueSendMessage(input);
-    await processOutboxOnce();
+    try {
+        await runSyncCycle(input.senderId);
+    } catch {
+        // Message is persisted locally; sync can retry later.
+    }
     return local;
 }

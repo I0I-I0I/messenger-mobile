@@ -7,6 +7,7 @@ type DbConversationRow = {
     user_b: string;
     created_at: number;
     updated_at: number;
+    server_updated_at: number | null;
     last_message_preview: string;
     last_message_at: number;
     unread_count: number;
@@ -19,6 +20,7 @@ function toConversationRow(row: DbConversationRow): ConversationRow {
         userB: row.user_b,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
+        serverUpdatedAt: row.server_updated_at ?? undefined,
         lastMessagePreview: row.last_message_preview,
         lastMessageAt: row.last_message_at,
         unreadCount: row.unread_count,
@@ -38,6 +40,7 @@ export async function getConversationById(conversationId: string) {
             user_b,
             created_at,
             updated_at,
+            server_updated_at,
             last_message_preview,
             last_message_at,
             unread_count
@@ -48,6 +51,55 @@ export async function getConversationById(conversationId: string) {
     );
 
     return row ? toConversationRow(row) : null;
+}
+
+export async function upsertConversation(input: {
+    id: string;
+    userA: string;
+    userB: string;
+    createdAt: number;
+    updatedAt: number;
+    serverUpdatedAt?: number;
+    lastMessagePreview?: string;
+    lastMessageAt?: number;
+    unreadCount?: number;
+}) {
+    const db = await getDb();
+
+    await db.runAsync(
+        `INSERT INTO conversations (
+            id,
+            user_a,
+            user_b,
+            created_at,
+            updated_at,
+            server_updated_at,
+            last_message_preview,
+            last_message_at,
+            unread_count
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            user_a = excluded.user_a,
+            user_b = excluded.user_b,
+            updated_at = excluded.updated_at,
+            server_updated_at = COALESCE(excluded.server_updated_at, conversations.server_updated_at),
+            last_message_preview = excluded.last_message_preview,
+            last_message_at = excluded.last_message_at,
+            unread_count = excluded.unread_count;`,
+        [
+            input.id,
+            input.userA,
+            input.userB,
+            input.createdAt,
+            input.updatedAt,
+            input.serverUpdatedAt ?? null,
+            input.lastMessagePreview ?? "",
+            input.lastMessageAt ?? input.updatedAt,
+            input.unreadCount ?? 0,
+        ],
+    );
+
+    return getConversationById(input.id);
 }
 
 export async function findOrCreateDirectConversation(
@@ -63,24 +115,15 @@ export async function findOrCreateDirectConversation(
         return existing;
     }
 
-    const db = await getDb();
     const now = Date.now();
+    const created = await upsertConversation({
+        id,
+        userA,
+        userB,
+        createdAt: now,
+        updatedAt: now,
+    });
 
-    await db.runAsync(
-        `INSERT OR IGNORE INTO conversations (
-            id,
-            user_a,
-            user_b,
-            created_at,
-            updated_at,
-            last_message_preview,
-            last_message_at,
-            unread_count
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
-        [id, userA, userB, now, now, "", now, 0],
-    );
-
-    const created = await getConversationById(id);
     if (!created) {
         throw new Error("CONVERSATION_CREATE_FAILED");
     }
@@ -97,6 +140,7 @@ export async function listConversationsForUser(userId: string) {
             user_b,
             created_at,
             updated_at,
+            server_updated_at,
             last_message_preview,
             last_message_at,
             unread_count

@@ -7,7 +7,7 @@ import {
     MOCK_USERS,
 } from "@/src/service/mockData";
 
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 const DEMO_PASSWORD_HASH_FOR_USER_1 =
     "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92";
@@ -33,6 +33,7 @@ const CREATE_SCHEMA_SQL = `
         user_b TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
+        server_updated_at INTEGER,
         last_message_preview TEXT NOT NULL DEFAULT '',
         last_message_at INTEGER NOT NULL,
         unread_count INTEGER NOT NULL DEFAULT 0
@@ -42,6 +43,10 @@ const CREATE_SCHEMA_SQL = `
         id TEXT PRIMARY KEY NOT NULL,
         conversation_id TEXT NOT NULL,
         sender_id TEXT NOT NULL,
+        client_message_id TEXT,
+        server_id TEXT,
+        server_seq INTEGER,
+        server_created_at INTEGER,
         content TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         status TEXT NOT NULL CHECK (status IN ('pending', 'sent', 'failed')),
@@ -51,6 +56,15 @@ const CREATE_SCHEMA_SQL = `
 
     CREATE INDEX IF NOT EXISTS idx_messages_conversation_created_at
         ON messages (conversation_id, created_at DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_messages_conversation_server_seq
+        ON messages (conversation_id, server_seq);
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_server_id
+        ON messages (server_id) WHERE server_id IS NOT NULL;
+
+    CREATE INDEX IF NOT EXISTS idx_messages_sender_client_message_id
+        ON messages (sender_id, client_message_id);
 
     CREATE TABLE IF NOT EXISTS outbox (
         id TEXT PRIMARY KEY NOT NULL,
@@ -62,7 +76,7 @@ const CREATE_SCHEMA_SQL = `
     );
 `;
 
-const REQUIRED_COLUMNS: Record<string, string[]> = {
+const REQUIRED_CORE_COLUMNS: Record<string, string[]> = {
     users: [
         "id",
         "username",
@@ -115,7 +129,7 @@ async function hasRequiredColumns(
 
 async function hasSchemaMismatch(db: SQLiteDatabase) {
     for (const [tableName, requiredColumns] of Object.entries(
-        REQUIRED_COLUMNS,
+        REQUIRED_CORE_COLUMNS,
     )) {
         const ok = await hasRequiredColumns(db, tableName, requiredColumns);
         if (!ok) {
@@ -135,6 +149,46 @@ async function recreateSchema(db: SQLiteDatabase) {
     await db.execAsync(CREATE_SCHEMA_SQL);
 }
 
+async function addColumnIfMissing(
+    db: SQLiteDatabase,
+    tableName: string,
+    columnName: string,
+    columnDefinition: string,
+) {
+    const hasColumn = await hasRequiredColumns(db, tableName, [columnName]);
+    if (hasColumn) {
+        return;
+    }
+
+    await db.execAsync(
+        `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition};`,
+    );
+}
+
+async function migrateToV3(db: SQLiteDatabase) {
+    await addColumnIfMissing(
+        db,
+        "conversations",
+        "server_updated_at",
+        "INTEGER",
+    );
+    await addColumnIfMissing(db, "messages", "client_message_id", "TEXT");
+    await addColumnIfMissing(db, "messages", "server_id", "TEXT");
+    await addColumnIfMissing(db, "messages", "server_seq", "INTEGER");
+    await addColumnIfMissing(db, "messages", "server_created_at", "INTEGER");
+
+    await db.execAsync(`
+        CREATE INDEX IF NOT EXISTS idx_messages_conversation_server_seq
+            ON messages (conversation_id, server_seq);
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_server_id
+            ON messages (server_id) WHERE server_id IS NOT NULL;
+
+        CREATE INDEX IF NOT EXISTS idx_messages_sender_client_message_id
+            ON messages (sender_id, client_message_id);
+    `);
+}
+
 export async function applyMigrations(db: SQLiteDatabase) {
     const versionRow = await db.getFirstAsync<{ user_version: number }>(
         "PRAGMA user_version",
@@ -147,9 +201,16 @@ export async function applyMigrations(db: SQLiteDatabase) {
         migrated = true;
     }
 
-    const mismatch = await hasSchemaMismatch(db);
-    if (mismatch) {
-        await recreateSchema(db);
+    if (currentVersion >= 1) {
+        const mismatch = await hasSchemaMismatch(db);
+        if (mismatch) {
+            await recreateSchema(db);
+            migrated = true;
+        }
+    }
+
+    if (currentVersion < 3) {
+        await migrateToV3(db);
         migrated = true;
     }
 
@@ -216,14 +277,15 @@ export async function seedDatabaseIfEmpty(db: SQLiteDatabase) {
         for (const conversation of conversations.values()) {
             await db.runAsync(
                 `INSERT INTO conversations (
-                    id, user_a, user_b, created_at, updated_at, last_message_preview, last_message_at, unread_count
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+                    id, user_a, user_b, created_at, updated_at, server_updated_at, last_message_preview, last_message_at, unread_count
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);`,
                 [
                     conversation.id,
                     conversation.userA,
                     conversation.userB,
                     conversation.createdAt,
                     conversation.createdAt,
+                    null,
                     "",
                     conversation.createdAt,
                     0,
@@ -241,12 +303,16 @@ export async function seedDatabaseIfEmpty(db: SQLiteDatabase) {
             for (const item of list) {
                 await db.runAsync(
                     `INSERT INTO messages (
-                        id, conversation_id, sender_id, content, created_at, status, server_echo
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?);`,
+                        id, conversation_id, sender_id, client_message_id, server_id, server_seq, server_created_at, content, created_at, status, server_echo
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
                     [
                         createId("seed_msg"),
                         conversationId,
                         item.senderId,
+                        null,
+                        null,
+                        null,
+                        null,
                         item.content,
                         item.createdAt,
                         "sent",

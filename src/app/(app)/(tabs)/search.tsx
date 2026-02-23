@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { FlatList, StyleSheet, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useDebounce } from "use-debounce";
 
 import { User } from "@/src/domain/types";
 import { SessionState, useSessionStore } from "@/src/state/useSessionStore";
@@ -15,30 +16,46 @@ export default function FriendsScreen() {
     const userId = useSessionStore((state: SessionState) => state.userId);
     const { theme } = useTheme();
     const [query, setQuery] = useState("");
+    const [debouncedQuery] = useDebounce(query, 500);
     const [users, setUsers] = useState<User[]>([]);
 
     useEffect(() => {
         let active = true;
 
         async function load() {
+            if (debouncedQuery === "") {
+                if (active) {
+                    setUsers([]);
+                }
+                return;
+            }
             if (!userId) {
                 if (active) {
                     setUsers([]);
                 }
                 return;
             }
-            const result = await searchUsersByQuery({ query, limit: 10 });
-            if (active) {
-                setUsers(result);
+            try {
+                const result = await searchUsersByQuery({
+                    query: debouncedQuery,
+                    limit: 10,
+                });
+                if (active) {
+                    setUsers(result);
+                }
+            } catch {
+                if (active) {
+                    setUsers([]);
+                }
             }
         }
 
-        void load();
+        load();
 
         return () => {
             active = false;
         };
-    }, [query, userId]);
+    }, [debouncedQuery, userId]);
 
     async function openChat(otherUserId: string) {
         if (!userId) {

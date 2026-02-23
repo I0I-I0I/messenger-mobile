@@ -85,11 +85,15 @@ export async function upsertUser(input: {
     id: string;
     username: string;
     displayName: string;
-    avatar?: string;
+    avatar?: string | null;
     passwordHash?: string;
+    createdAt?: number;
+    updatedAt?: number;
 }) {
     const db = await getDb();
     const now = Date.now();
+    const createdAt = input.createdAt ?? now;
+    const updatedAt = input.updatedAt ?? now;
 
     await db.runAsync(
         `INSERT INTO users (
@@ -112,8 +116,8 @@ export async function upsertUser(input: {
             input.username,
             input.displayName,
             input.avatar ?? "",
-            now,
-            now,
+            createdAt,
+            updatedAt,
             input.passwordHash ?? null,
         ],
     );

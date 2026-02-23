@@ -3,19 +3,19 @@ jest.mock("@/src/repository/messageRepository", () => ({
     listMessages: jest.fn(),
 }));
 
-jest.mock("@/src/sync/outboxProcessor", () => ({
-    processOutboxOnce: jest.fn(),
+jest.mock("@/src/sync/syncScheduler", () => ({
+    runSyncCycle: jest.fn(),
 }));
 
 import { loadMessages, sendMessage } from "@/src/usecases/messages";
 import * as messageRepository from "@/src/repository/messageRepository";
-import * as outboxProcessor from "@/src/sync/outboxProcessor";
+import * as syncScheduler from "@/src/sync/syncScheduler";
 
 const mockedEnqueueSendMessage = jest.mocked(
     messageRepository.enqueueSendMessage,
 );
 const mockedListMessages = jest.mocked(messageRepository.listMessages);
-const mockedProcessOutboxOnce = jest.mocked(outboxProcessor.processOutboxOnce);
+const mockedRunSyncCycle = jest.mocked(syncScheduler.runSyncCycle);
 
 describe("messages usecases", () => {
     beforeEach(() => {
@@ -45,14 +45,14 @@ describe("messages usecases", () => {
             status: "pending",
         } as const;
         mockedEnqueueSendMessage.mockResolvedValue(localMessage);
-        mockedProcessOutboxOnce.mockResolvedValue(undefined);
+        mockedRunSyncCycle.mockResolvedValue(undefined);
 
         await expect(sendMessage(input)).resolves.toEqual(localMessage);
         expect(mockedEnqueueSendMessage).toHaveBeenCalledWith(input);
-        expect(mockedProcessOutboxOnce).toHaveBeenCalledTimes(1);
+        expect(mockedRunSyncCycle).toHaveBeenCalledWith("user-1");
     });
 
-    it("sendMessage surfaces outbox processing errors", async () => {
+    it("sendMessage keeps local success when sync fails", async () => {
         const input = {
             chatId: "chat-1",
             senderId: "user-1",
@@ -61,9 +61,11 @@ describe("messages usecases", () => {
         mockedEnqueueSendMessage.mockResolvedValue({
             id: "local-msg-1",
         } as any);
-        mockedProcessOutboxOnce.mockRejectedValue(new Error("OUTBOX_ERROR"));
+        mockedRunSyncCycle.mockRejectedValue(new Error("SYNC_ERROR"));
 
-        await expect(sendMessage(input)).rejects.toThrow("OUTBOX_ERROR");
+        await expect(sendMessage(input)).resolves.toEqual({
+            id: "local-msg-1",
+        });
         expect(mockedEnqueueSendMessage).toHaveBeenCalledWith(input);
     });
 });

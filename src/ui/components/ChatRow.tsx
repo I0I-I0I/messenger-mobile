@@ -8,6 +8,8 @@ import {
     ViewStyle,
 } from "react-native";
 
+import AvatarIcon from "@/assets/icons/avatar.svg";
+
 import { ChatListItem } from "@/src/domain/types";
 import { useTheme } from "@/src/theme/ThemeProvider";
 
@@ -40,10 +42,15 @@ export function ChatRow({ item, onPress, style }: ChatRowProps) {
                 pressed && styles.pressed,
             ]}
         >
-            <Image
-                source={{ uri: item.otherUser.avatar }}
-                style={styles.avatarImage}
-            />
+            {item.otherUser.avatar !== null &&
+            item.otherUser.avatar.length !== 0 ? (
+                <Image
+                    source={{ uri: item.otherUser.avatar }}
+                    style={styles.avatarImage}
+                />
+            ) : (
+                <AvatarIcon width={40} height={40} color={theme.colors.text} />
+            )}
             <View style={styles.main}>
                 <View style={styles.header}>
                     <Text style={[styles.name, { color: theme.colors.text }]}>

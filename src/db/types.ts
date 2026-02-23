@@ -16,6 +16,7 @@ export type ConversationRow = {
     userB: string;
     createdAt: number;
     updatedAt: number;
+    serverUpdatedAt?: number;
     lastMessagePreview: string;
     lastMessageAt: number;
     unreadCount: number;
@@ -25,6 +26,10 @@ export type MessageRow = {
     id: string;
     conversationId: string;
     senderId: string;
+    clientMessageId?: string;
+    serverId?: string;
+    serverSeq?: number;
+    serverCreatedAt?: number;
     content: string;
     createdAt: number;
     status: MessageStatus;

@@ -37,7 +37,7 @@ import {
 
 type HeaderChatUser = {
     displayName: string;
-    avatar: string;
+    avatar: string | null;
     lastSeenAt: number;
 };
 
@@ -285,8 +285,7 @@ export default function ChatScreen() {
                             styles.sendButton,
                             {
                                 backgroundColor: theme.colors.primary,
-                                opacity:
-                                    sending || !draft.trim() ? 0.5 : 1,
+                                opacity: sending || !draft.trim() ? 0.5 : 1,
                             },
                         ]}
                         onPress={() => void onSend()}

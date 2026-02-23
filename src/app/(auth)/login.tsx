@@ -14,6 +14,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { Button } from "@/src/ui/components/Button";
 import { TextField } from "@/src/ui/components/TextField";
 import { loginWithPassword } from "@/src/usecases/auth";
+import config from "@/src/config";
 import { clearDb } from "@/src/db";
 
 export default function LoginScreen() {
@@ -38,15 +39,20 @@ export default function LoginScreen() {
             router.replace("/(app)/(tabs)/chats");
         } catch (error) {
             const message = error instanceof Error ? error.message : "UNKNOWN";
-            if (message === "USER_NOT_FOUND") {
-                setError("Пользователь не найден");
-                return;
-            }
-            if (message === "INVALID_PASSWORD") {
+            if (
+                message === "INVALID_PASSWORD" ||
+                message === "INVALID_CREDENTIALS" ||
+                message === "INVALID_LOGIN" ||
+                message === "USER_NOT_FOUND"
+            ) {
                 setError("Неправильный пароль");
                 return;
             }
-            setError("Ошибка входа");
+            if (message === "NETWORK_ERROR") {
+                setError("Сервер недоступен");
+                return;
+            }
+            // setError(`Ошибка входа + ${config.DEBUG ? error : ""}`);
         } finally {
             setLoading(false);
         }
@@ -109,7 +115,12 @@ export default function LoginScreen() {
                     >
                         Создать аккаунт
                     </Link>
-                    <Button title="Reset DB" onPress={() => void clearDb()} />
+                    {config.DEBUG ? (
+                        <Button
+                            title="RESET_DB"
+                            onPress={() => void clearDb()}
+                        />
+                    ) : null}
                 </ScrollView>
             </SafeAreaView>
         </KeyboardAvoidingView>

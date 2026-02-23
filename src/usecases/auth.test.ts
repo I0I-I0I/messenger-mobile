@@ -1,16 +1,20 @@
-jest.mock("@/src/repository/userRepository", () => ({
-    createUser: jest.fn(),
-    getUserAuthByUsername: jest.fn(),
-}));
-
 jest.mock("@/src/repository/sessionRepository", () => ({
     clearSession: jest.fn(),
     getSession: jest.fn(),
     setSession: jest.fn(),
 }));
 
+jest.mock("@/src/sync/bootstrap", () => ({
+    runBootstrapSync: jest.fn(),
+}));
+
+jest.mock("@/src/transport/rest/auth", () => ({
+    loginRequest: jest.fn(),
+    logoutRequest: jest.fn(),
+    registerRequest: jest.fn(),
+}));
+
 jest.mock("@/src/domain/validators", () => ({
-    hashPassword: jest.fn(),
     validateRegistrationInput: jest.fn(),
 }));
 
@@ -21,17 +25,17 @@ import {
     registerWithPassword,
 } from "@/src/usecases/auth";
 import * as sessionRepository from "@/src/repository/sessionRepository";
-import * as userRepository from "@/src/repository/userRepository";
+import * as bootstrapSync from "@/src/sync/bootstrap";
+import * as authTransport from "@/src/transport/rest/auth";
 import * as validators from "@/src/domain/validators";
 
-const mockedCreateUser = jest.mocked(userRepository.createUser);
-const mockedGetUserAuthByUsername = jest.mocked(
-    userRepository.getUserAuthByUsername,
-);
 const mockedClearSession = jest.mocked(sessionRepository.clearSession);
 const mockedGetSession = jest.mocked(sessionRepository.getSession);
 const mockedSetSession = jest.mocked(sessionRepository.setSession);
-const mockedHashPassword = jest.mocked(validators.hashPassword);
+const mockedRunBootstrapSync = jest.mocked(bootstrapSync.runBootstrapSync);
+const mockedLoginRequest = jest.mocked(authTransport.loginRequest);
+const mockedLogoutRequest = jest.mocked(authTransport.logoutRequest);
+const mockedRegisterRequest = jest.mocked(authTransport.registerRequest);
 const mockedValidateRegistrationInput = jest.mocked(
     validators.validateRegistrationInput,
 );
@@ -49,39 +53,26 @@ describe("auth usecases", () => {
         expect(mockedGetSession).toHaveBeenCalledTimes(1);
     });
 
-    it("loginWithPassword throws when user does not exist", async () => {
-        mockedGetUserAuthByUsername.mockResolvedValue(null);
-
-        await expect(
-            loginWithPassword({ username: "alice", password: "pass123" }),
-        ).rejects.toThrow("USER_NOT_FOUND");
-        expect(mockedSetSession).not.toHaveBeenCalled();
-    });
-
-    it("loginWithPassword throws when password hash does not match", async () => {
-        mockedGetUserAuthByUsername.mockResolvedValue({
+    it("loginWithPassword stores session and runs bootstrap", async () => {
+        mockedLoginRequest.mockResolvedValue({
             id: "1",
-            passwordHash: "stored_hash",
-        });
-        mockedHashPassword.mockResolvedValue("other_hash");
-
-        await expect(
-            loginWithPassword({ username: "alice", password: "pass123" }),
-        ).rejects.toThrow("INVALID_PASSWORD");
-        expect(mockedSetSession).not.toHaveBeenCalled();
-    });
-
-    it("loginWithPassword stores session on success", async () => {
-        mockedGetUserAuthByUsername.mockResolvedValue({
-            id: "1",
-            passwordHash: "stored_hash",
-        });
-        mockedHashPassword.mockResolvedValue("stored_hash");
+            username: "alice",
+        } as any);
+        mockedRunBootstrapSync.mockResolvedValue(undefined);
 
         await expect(
             loginWithPassword({ username: "alice", password: "pass123" }),
         ).resolves.toEqual({ userId: "1" });
         expect(mockedSetSession).toHaveBeenCalledWith("1");
+        expect(mockedRunBootstrapSync).toHaveBeenCalledWith("1");
+    });
+
+    it("loginWithPassword maps transport errors to code", async () => {
+        mockedLoginRequest.mockRejectedValue(new Error("INVALID_CREDENTIALS"));
+
+        await expect(
+            loginWithPassword({ username: "alice", password: "pass123" }),
+        ).rejects.toThrow("INVALID_CREDENTIALS");
     });
 
     it("registerWithPassword throws when validation fails", async () => {
@@ -96,53 +87,17 @@ describe("auth usecases", () => {
                 password: "123",
             }),
         ).rejects.toThrow("Пароль должен содержать не менее 6 символов.");
-        expect(mockedCreateUser).not.toHaveBeenCalled();
+        expect(mockedRegisterRequest).not.toHaveBeenCalled();
     });
 
-    it("registerWithPassword throws when username is taken", async () => {
+    it("registerWithPassword stores session and runs bootstrap", async () => {
         mockedValidateRegistrationInput.mockReturnValue(null);
-        mockedGetUserAuthByUsername.mockResolvedValue({
-            id: "1",
-            passwordHash: "stored_hash",
-        });
-
-        await expect(
-            registerWithPassword({
-                username: "alice",
-                displayName: "Alice",
-                password: "pass123",
-            }),
-        ).rejects.toThrow("USERNAME_TAKEN");
-        expect(mockedCreateUser).not.toHaveBeenCalled();
-    });
-
-    it("registerWithPassword throws when createUser returns null", async () => {
-        mockedValidateRegistrationInput.mockReturnValue(null);
-        mockedGetUserAuthByUsername.mockResolvedValue(null);
-        mockedHashPassword.mockResolvedValue("hash");
-        mockedCreateUser.mockResolvedValue(null);
-
-        await expect(
-            registerWithPassword({
-                username: "alice",
-                displayName: "Alice",
-                password: "pass123",
-            }),
-        ).rejects.toThrow("REGISTER_FAILED");
-        expect(mockedSetSession).not.toHaveBeenCalled();
-    });
-
-    it("registerWithPassword stores session on success", async () => {
-        mockedValidateRegistrationInput.mockReturnValue(null);
-        mockedGetUserAuthByUsername.mockResolvedValue(null);
-        mockedHashPassword.mockResolvedValue("hash");
-        mockedCreateUser.mockResolvedValue({
+        mockedRegisterRequest.mockResolvedValue({
             id: "42",
             username: "alice",
-            displayName: "Alice",
-            avatar: "",
-            createdAt: Date.now(),
-        });
+            display_name: "Alice",
+        } as any);
+        mockedRunBootstrapSync.mockResolvedValue(undefined);
 
         await expect(
             registerWithPassword({
@@ -151,15 +106,18 @@ describe("auth usecases", () => {
                 password: "pass123",
             }),
         ).resolves.toEqual({ userId: "42" });
-        expect(mockedCreateUser).toHaveBeenCalledWith({
+        expect(mockedRegisterRequest).toHaveBeenCalledWith({
             username: "alice",
-            displayName: "Alice",
-            passwordHash: "hash",
+            display_name: "Alice",
+            password: "pass123",
         });
         expect(mockedSetSession).toHaveBeenCalledWith("42");
+        expect(mockedRunBootstrapSync).toHaveBeenCalledWith("42");
     });
 
-    it("logoutCurrentSession clears persisted session", async () => {
+    it("logoutCurrentSession clears session even if backend logout fails", async () => {
+        mockedLogoutRequest.mockRejectedValue(new Error("NETWORK_ERROR"));
+
         await logoutCurrentSession();
         expect(mockedClearSession).toHaveBeenCalledTimes(1);
     });

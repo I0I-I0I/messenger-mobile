@@ -46,6 +46,10 @@ export default function RegisterScreen() {
                 setError("Такой логин уже существует.");
                 return;
             }
+            if (message === "NETWORK_ERROR") {
+                setError("Сервер недоступен.");
+                return;
+            }
 
             setError(
                 `Не получается создать аккаунт. ${config.DEBUG ? message : ""}`,
